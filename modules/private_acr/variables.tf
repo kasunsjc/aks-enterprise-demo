@@ -49,7 +49,12 @@ variable "operator_object_id" {
 }
 
 variable "jumpbox_identity_object_id" {
-  description = "Object ID of the jumpbox system-assigned identity (granted AcrPull)."
+  description = "Object ID of the Linux jumpbox system-assigned identity (granted AcrPull)."
+  type        = string
+}
+
+variable "windows_jumpbox_identity_object_id" {
+  description = "Object ID of the Windows jumpbox system-assigned identity (granted AcrPull)."
   type        = string
 }
 

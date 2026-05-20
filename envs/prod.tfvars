@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------------
 
 environment        = "prod"
-unique_identifier  = "contoso" # ≤6 chars; org/subscription identifier. Full ACR name: acrpaksprod<id>, LAW: log-paks-prod-<id>
+unique_identifier  = "contso" # ≤6 chars; org/subscription identifier. Full ACR name: acrpaksprod<id>, LAW: log-paks-prod-<id>
 location           = "eastus"
 kubernetes_version = "1.30"
 
@@ -59,6 +59,11 @@ jumpbox_vm_size        = "Standard_D2s_v5"
 jumpbox_admin_username = "azureadmin"
 # jumpbox_admin_password — set via TF_VAR_jumpbox_admin_password or -var flag
 # operator_object_id     — set via TF_VAR_operator_object_id or -var flag
+
+# Windows Jumpbox — larger for running builds and debugging on Windows
+windows_jumpbox_vm_size        = "Standard_D4s_v5"
+windows_jumpbox_admin_username = "azureadmin"
+# windows_jumpbox_admin_password — set via TF_VAR_windows_jumpbox_admin_password or -var flag
 
 tags = {
   workload    = "private-aks-landing-zone"

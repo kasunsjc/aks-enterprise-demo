@@ -32,19 +32,25 @@ output "jumpbox_name" {
   value = module.jumpbox.vm_name
 }
 
+output "windows_jumpbox_name" {
+  value = module.windows_jumpbox.vm_name
+}
+
 output "next_steps" {
   description = "How to reach the private cluster after apply."
   value       = <<-EOT
-    1. In the Azure portal, open VM '${module.jumpbox.vm_name}' and Connect via Bastion.
+    1. Linux jumpbox: open VM '${module.jumpbox.vm_name}' in the Azure portal and Connect via Bastion (SSH).
        Username: ${var.jumpbox_admin_username}
-    2. On the jumpbox:
+    2. Windows jumpbox: open VM '${module.windows_jumpbox.vm_name}' in the Azure portal and Connect via Bastion (RDP).
+       Username: ${var.windows_jumpbox_admin_username}
+    3. On either jumpbox:
          az login
          az aks get-credentials -g ${azurerm_resource_group.spoke.name} -n ${module.private_aks.cluster_name}
          kubectl get nodes
-    3. To push an image privately:
+    4. To push an image privately:
          az acr login --name ${module.private_acr.acr_name}
          docker push ${module.private_acr.login_server}/<your-image>:tag
-    4. Open Grafana (via Bastion/jumpbox, private only):
+    5. Open Grafana (via Bastion/jumpbox, private only):
          ${module.monitoring.grafana_endpoint}
   EOT
 }

@@ -1,6 +1,6 @@
 # AKS Enterprise Landing Zone
 
-A learning and demo resource for exploring **private AKS** deployment on Azure, using a **hub-and-spoke** network topology with full egress control, zero public IP exposure, and Terraform modules — following production best practices throughout.
+A learning and demo resource for exploring **private AKS** deployment on Azure, using a **hub-and-spoke** network topology with full egress control, no public IPs on workloads or VMs, and Terraform modules — following production best practices throughout.
 
 Use this repo to understand Terraform concepts, Azure networking patterns, and enterprise-grade AKS architecture.
 
@@ -51,7 +51,8 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
 | User-assigned managed identity for AKS | Pre-granted Private DNS Zone Contributor + Network Contributor |
 | **Premium ACR** with private endpoint | `public_network_access_enabled = false` — image pulls stay on-net |
 | `AcrPull` on ACR for AKS kubelet | No registry secrets; MSI-based auth |
-| Linux jumpbox VM | No public IP; only reachable via Bastion |
+| Linux jumpbox VM | No public IP; only reachable via Bastion SSH |
+| Windows Server 2022 jumpbox VM | No public IP; reachable via Bastion RDP; kubectl, Helm, Azure CLI, and git installed automatically |
 
 ## Module layout
 
@@ -62,12 +63,14 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
 ├── outputs.tf         # Key resource IDs and connection info
 ├── providers.tf       # azurerm ~> 4.0, terraform >= 1.5.0
 └── modules/
-    ├── hub_network/   # Hub VNet + AzureFirewallSubnet, AzureBastionSubnet, snet-shared
-    ├── hub_security/  # Azure Firewall + Firewall Policy + AKS egress rules + Azure Bastion
-    ├── spoke_network/ # Spoke VNet + subnets + VNet peerings + UDR route table
-    ├── private_aks/   # BYO Private DNS zone, UAMI, Log Analytics, AKS cluster + node pools
-    ├── private_acr/   # Premium ACR + private endpoint + ACR DNS zone + role assignments
-    └── jumpbox/       # Linux VM (no public IP), cloud-init (az + kubectl), role assignments
+    ├── hub_network/      # Hub VNet + AzureFirewallSubnet, AzureBastionSubnet, snet-shared
+    ├── hub_security/     # Azure Firewall + Firewall Policy + AKS egress rules + Azure Bastion
+    ├── spoke_network/    # Spoke VNet + subnets + VNet peerings + UDR route table
+    ├── private_aks/      # BYO Private DNS zone, UAMI, Log Analytics, AKS cluster + node pools
+    ├── private_acr/      # Premium ACR + private endpoint + ACR DNS zone + role assignments
+    ├── jumpbox/          # Linux VM (no public IP), cloud-init (az + kubectl), role assignments
+    └── windows_jumpbox/  # Windows Server 2022 VM (no public IP), Custom Script Extension
+                          # (installs kubectl, Helm, Azure CLI, git via Chocolatey), role assignments
 ```
 
 Each module has `main.tf / variables.tf / outputs.tf / versions.tf` and can be consumed independently.
@@ -113,6 +116,7 @@ or identity-specific:
 | Variable | How to supply |
 |---|---|
 | `jumpbox_admin_password` | `export TF_VAR_jumpbox_admin_password='...'` |
+| `windows_jumpbox_admin_password` | `export TF_VAR_windows_jumpbox_admin_password='...'` |
 | `operator_object_id` | `export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)` |
 
 ## Usage
@@ -124,6 +128,7 @@ terraform init
 
 # Set secrets once as env vars (never in var files)
 export TF_VAR_jumpbox_admin_password='<a-strong-password>'
+export TF_VAR_windows_jumpbox_admin_password='<a-strong-password>'
 export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)
 
 # Deploy dev
@@ -164,7 +169,9 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 
 ## Connecting to the cluster
 
-1. In the Azure portal, open the jumpbox VM → **Connect → Bastion**.
+### Linux jumpbox (SSH via Bastion)
+
+1. In the Azure portal, open the Linux jumpbox VM → **Connect → Bastion**.
 2. Log in with `jumpbox_admin_username` / `jumpbox_admin_password`.
 3. On the jumpbox:
 
@@ -176,6 +183,19 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 
    The `kubectl` call resolves the private API FQDN to a **private IP** via the
    Private DNS Zone linked to the spoke VNet.
+
+### Windows jumpbox (RDP via Bastion)
+
+1. In the Azure portal, open the Windows jumpbox VM → **Connect → Bastion**.
+2. Log in with `windows_jumpbox_admin_username` / `windows_jumpbox_admin_password`.
+3. On first boot, the Custom Script Extension installs **Azure CLI**, **kubectl**, **Helm**, and **git** via Chocolatey. Once complete, open a new PowerShell window and run:
+
+   ```powershell
+   az login
+   az aks get-credentials -g rg-paks-<env>-spoke -n aks-paks-<env>
+   kubectl get nodes
+   helm version
+   ```
 
 4. To push an image:
 
@@ -191,7 +211,7 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 - **User-assigned MI for AKS** is mandatory with a BYO DNS zone — AKS needs `Private DNS Zone Contributor` on the zone *before* the cluster is created.
 - **Azure Firewall + UDR** centralises all egress through a single auditable point. AKS has a published list of required FQDNs and ports; this repo encodes them in a Firewall Policy.
 - **Private ACR** prevents image exfiltration and external pull-through. The kubelet authenticates via MSI — no registry secrets in the cluster.
-- **Bastion + jumpbox** is the standard "operators only" path. No public IPs on VMs, no open NSG ports.
+- **Bastion + jumpbox** is the standard "operators only" path. No public IPs on VMs, no open NSG ports. Both a Linux jumpbox (SSH) and a Windows jumpbox (RDP) are provided; choose based on team preference.
 
 ## Egress rules
 

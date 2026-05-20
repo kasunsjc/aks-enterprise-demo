@@ -4,7 +4,7 @@ variable "unique_identifier" {
 
   validation {
     condition     = can(regex("^[a-z0-9]{1,6}$", var.unique_identifier))
-    error_message = "unique_identifier must be 1-6 lowercase alphanumeric characters (e.g. 'contoso', 'abc123')."
+    error_message = "unique_identifier must be 1-6 lowercase alphanumeric characters (e.g. 'corp01', 'abc123')."
   }
 }
 
@@ -71,9 +71,27 @@ variable "spoke_subnets" {
 }
 
 variable "jumpbox_vm_size" {
-  description = "Size of the jumpbox VM."
+  description = "Size of the Linux jumpbox VM."
   type        = string
   default     = "Standard_B2s"
+}
+
+variable "windows_jumpbox_vm_size" {
+  description = "Size of the Windows jumpbox VM."
+  type        = string
+  default     = "Standard_D2s_v5"
+}
+
+variable "windows_jumpbox_admin_username" {
+  description = "Admin username on the Windows jumpbox VM."
+  type        = string
+  default     = "azureadmin"
+}
+
+variable "windows_jumpbox_admin_password" {
+  description = "Admin password on the Windows jumpbox VM. Use a strong password; this is sensitive."
+  type        = string
+  sensitive   = true
 }
 
 # ---------------------------------------------------------------------------

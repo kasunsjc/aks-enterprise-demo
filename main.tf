@@ -101,6 +101,26 @@ module "jumpbox" {
 }
 
 # ---------------------------------------------------------------------------
+# Module: windows_jumpbox
+# Windows Server VM (no public IP) with Custom Script Extension that installs
+# Azure CLI, kubectl, Helm, and git via Chocolatey. Reachable via Bastion RDP.
+# Create BEFORE private_acr so the Windows jumpbox MSI is available for AcrPull.
+# ---------------------------------------------------------------------------
+module "windows_jumpbox" {
+  source = "./modules/windows_jumpbox"
+
+  name_suffix         = local.name_suffix
+  resource_group_name = azurerm_resource_group.spoke.name
+  location            = azurerm_resource_group.spoke.location
+  jumpbox_subnet_id   = module.spoke_network.jumpbox_subnet_id
+  vm_size             = var.windows_jumpbox_vm_size
+  admin_username      = var.windows_jumpbox_admin_username
+  admin_password      = var.windows_jumpbox_admin_password
+  aks_cluster_id      = module.private_aks.cluster_id
+  tags                = local.tags
+}
+
+# ---------------------------------------------------------------------------
 # Module: private_aks
 # BYO Private DNS zone, UAMI, Log Analytics, private AKS cluster + node pools.
 # Depends on spoke_network (subnet ID) and jumpbox not needed here.
@@ -148,18 +168,19 @@ module "aks_node_pools" {
 module "private_acr" {
   source = "./modules/private_acr"
 
-  name_suffix                = local.name_suffix
-  unique_identifier          = var.unique_identifier
-  resource_group_name        = azurerm_resource_group.spoke.name
-  location                   = azurerm_resource_group.spoke.location
-  pe_subnet_id               = module.spoke_network.pe_subnet_id
-  spoke_vnet_id              = module.spoke_network.vnet_id
-  hub_vnet_id                = module.hub_network.vnet_id
-  hub_resource_group_name    = azurerm_resource_group.hub.name
-  aks_kubelet_object_id      = module.private_aks.kubelet_identity_object_id
-  operator_object_id         = var.operator_object_id
-  jumpbox_identity_object_id = module.jumpbox.identity_object_id
-  tags                       = local.tags
+  name_suffix                        = local.name_suffix
+  unique_identifier                  = var.unique_identifier
+  resource_group_name                = azurerm_resource_group.spoke.name
+  location                           = azurerm_resource_group.spoke.location
+  pe_subnet_id                       = module.spoke_network.pe_subnet_id
+  spoke_vnet_id                      = module.spoke_network.vnet_id
+  hub_vnet_id                        = module.hub_network.vnet_id
+  hub_resource_group_name            = azurerm_resource_group.hub.name
+  aks_kubelet_object_id              = module.private_aks.kubelet_identity_object_id
+  operator_object_id                 = var.operator_object_id
+  jumpbox_identity_object_id         = module.jumpbox.identity_object_id
+  windows_jumpbox_identity_object_id = module.windows_jumpbox.identity_object_id
+  tags                               = local.tags
 }
 
 # ---------------------------------------------------------------------------

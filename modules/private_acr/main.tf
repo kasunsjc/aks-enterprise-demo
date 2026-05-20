@@ -82,3 +82,10 @@ resource "azurerm_role_assignment" "jumpbox_acr_pull" {
   role_definition_name = "AcrPull"
   principal_id         = var.jumpbox_identity_object_id
 }
+
+# Windows jumpbox MSI also needs AcrPull to pull images / use `az acr login`.
+resource "azurerm_role_assignment" "windows_jumpbox_acr_pull" {
+  scope                = azurerm_container_registry.this.id
+  role_definition_name = "AcrPull"
+  principal_id         = var.windows_jumpbox_identity_object_id
+}
