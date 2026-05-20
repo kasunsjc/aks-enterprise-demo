@@ -1,86 +1,177 @@
-# terraform-azure
+# AKS Enterprise Landing Zone
 
-A hands-on learning repository that progresses from **Terraform basics** to
-**enterprise-grade scenarios** on Azure. Each demo is self-contained and
-explains both the *what* and the *why*.
+A production-ready **private AKS** deployment on Azure, using a **hub-and-spoke** network topology with full egress control, zero public IP exposure, and Terraform modules.
 
-## Demo progression
+No tutorials, no demos — this is the real thing.
 
-| #   | Demo                                                  | Concepts                                                                                   |
-| --- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 01  | [`demos/01-resource-group`](demos/01-resource-group)             | Providers, variables, outputs, tagging                                                     |
-| 02  | [`demos/02-storage-account`](demos/02-storage-account)           | Dependencies, naming constraints, validation, `random_string`                              |
-| 03  | [`demos/03-remote-state-backend`](demos/03-remote-state-backend) | Remote state on Azure Storage, versioning, soft delete, bootstrap pattern                  |
-| 04  | [`demos/04-modules-hub-spoke`](demos/04-modules-hub-spoke)       | Reusable modules, `for_each` over a map, hub-and-spoke VNet topology, bidirectional peering |
-| 05  | [`demos/05-multi-environment`](demos/05-multi-environment)       | Per-environment root modules with a shared module, dev vs prod sizing & tags               |
-| 06  | [`demos/06-aks-keyvault`](demos/06-aks-keyvault)                 | AKS with managed identity, Workload Identity (OIDC), Key Vault (RBAC), Log Analytics       |
-| 07  | [`demos/07-secure-webapp-sql`](demos/07-secure-webapp-sql)       | Private endpoints, Private DNS Zones, App Service VNet integration, Key Vault references   |
-| 08  | [`demos/08-private-aks-hub-spoke`](demos/08-private-aks-hub-spoke) | Private AKS in hub-and-spoke, Azure Firewall (egress lockdown), Bastion + jumpbox, private ACR, BYO Private DNS for the API |
+## Architecture
 
-## Deep-dive documents
+```
+                 ┌──────────────────────────── Hub VNet (10.0.0.0/16) ────────────────────────────┐
+                 │                                                                                  │
+   Operator ──▶  │ ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐ │
+   (browser)     │ │ AzureBastionSubnet   │    │ AzureFirewallSubnet  │    │ snet-shared          │ │
+                 │ │  Azure Bastion       │    │  Azure Firewall      │    │  (future shared svc) │ │
+                 │ └──────────┬───────────┘    └──────────┬───────────┘    └──────────────────────┘ │
+                 │            │                            │                                          │
+                 └────────────┼────────────────────────────┼──────────────────────────────────────────┘
+                              │ VNet peering               │ forced egress (UDR)
+                              ▼                            │
+                 ┌──────────────────────────── Spoke VNet (10.10.0.0/16) ──────────────────────────┐
+                 │                                                                                  │
+                 │ ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐ │
+                 │ │ snet-jumpbox         │    │ snet-aks             │    │ snet-pe              │ │
+                 │ │   Linux VM (NIC only)│    │   AKS nodes          │    │   PE for ACR         │ │
+                 │ │                      │    │   UDR → Firewall     │    │                      │ │
+                 │ └──────────┬───────────┘    └─────────┬────────────┘    └──────────┬───────────┘ │
+                 │            │ kubectl via              │ 0.0.0.0/0 → FW            │ private IP   │
+                 │            │ private API IP           │ allowed FQDNs / ports      │              │
+                 │            ▼                          ▼                             ▼              │
+                 │  ┌────────────────────────────────────────────────────────────────────────────┐  │
+                 │  │  Private DNS Zones (linked to hub + spoke VNets):                          │  │
+                 │  │  • privatelink.<region>.azmk8s.io  → AKS private API endpoint              │  │
+                 │  │  • privatelink.azurecr.io          → ACR private endpoint                  │  │
+                 │  └────────────────────────────────────────────────────────────────────────────┘  │
+                 └──────────────────────────────────────────────────────────────────────────────────┘
+```
 
-- [`docs/enterprise-concepts.md`](docs/enterprise-concepts.md) — state strategy,
-  module tiers, environments, identity, policy-as-code, drift, import, day-2 fires,
-  naming/tagging, recommended repo layout.
-- [`docs/ci-cd-pipeline.md`](docs/ci-cd-pipeline.md) — reference GitHub Actions
-  pipeline using Azure OIDC, with plan-as-PR-comment and gated production apply.
+**What is deployed:**
+
+| Component | Notes |
+|---|---|
+| Hub VNet + 3 subnets | Firewall, Bastion, shared services |
+| Spoke VNet + 3 subnets | AKS nodes, private endpoints, jumpbox |
+| Bidirectional VNet peerings | Hub ↔ spoke routing |
+| **Azure Firewall (Standard)** + Firewall Policy | All cluster egress audited in one place |
+| AKS-required firewall rules | Minimal FQDN/port allow-list (network + application rules) |
+| Route table on `snet-aks` | UDR: `0.0.0.0/0` → Firewall private IP |
+| **Azure Bastion (Standard SKU)** | Browser-based SSH to jumpbox — no public IPs needed |
+| Private DNS Zones | Name resolution for AKS API + ACR over private network |
+| **Private AKS cluster** | `private_cluster_enabled = true`, BYO DNS zone, user-assigned identity |
+| User-assigned managed identity for AKS | Pre-granted Private DNS Zone Contributor + Network Contributor |
+| **Premium ACR** with private endpoint | `public_network_access_enabled = false` — image pulls stay on-net |
+| `AcrPull` on ACR for AKS kubelet | No registry secrets; MSI-based auth |
+| Linux jumpbox VM | No public IP; only reachable via Bastion |
+
+## Module layout
+
+```
+.
+├── main.tf            # Resource groups + module calls
+├── variables.tf       # All input variables (with defaults)
+├── outputs.tf         # Key resource IDs and connection info
+├── providers.tf       # azurerm ~> 4.0, terraform >= 1.5.0
+└── modules/
+    ├── hub_network/   # Hub VNet + AzureFirewallSubnet, AzureBastionSubnet, snet-shared
+    ├── hub_security/  # Azure Firewall + Firewall Policy + AKS egress rules + Azure Bastion
+    ├── spoke_network/ # Spoke VNet + subnets + VNet peerings + UDR route table
+    ├── private_aks/   # BYO Private DNS zone, UAMI, Log Analytics, AKS cluster + node pools
+    ├── private_acr/   # Premium ACR + private endpoint + ACR DNS zone + role assignments
+    └── jumpbox/       # Linux VM (no public IP), cloud-init (az + kubectl), role assignments
+```
+
+Each module has `main.tf / variables.tf / outputs.tf / versions.tf` and can be consumed independently.
+
+### Dependency chain
+
+Terraform resolves all ordering through module output references — no manual `depends_on` at the root level:
+
+```
+hub_network  ──▶  hub_security   (firewall / bastion subnet IDs)
+hub_network  ──▶  spoke_network  (hub VNet ID + name for peering)
+hub_security ──▶  spoke_network  (firewall_private_ip → UDR next hop)
+spoke_network ──▶ private_aks    (aks_subnet_id, spoke_vnet_id)
+spoke_network ──▶ private_acr    (pe_subnet_id, spoke_vnet_id)
+jumpbox + private_aks ──▶ private_acr  (MSI object IDs → AcrPull)
+private_aks + private_acr ──▶ jumpbox  (cluster_id, acr_id → role assignments)
+```
 
 ## Prerequisites
 
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
-- Azure CLI — log in once before running anything:
+- Azure CLI, authenticated:
 
   ```bash
   az login
   az account set --subscription "<your subscription id>"
   ```
 
-## Suggested learning path
-
-1. **Demos 01–02** — get the muscle memory of `init / plan / apply / destroy`,
-   variables, outputs, and basic Azure resource constraints.
-2. **Demo 03** — set up remote state. Every subsequent enterprise pattern depends on this.
-3. **Demo 04** — learn modules and `for_each`. Hub-and-spoke is the canonical
-   landing-zone topology.
-4. **Demo 05** — split into environments. Understand isolation and promotion.
-5. **Demo 06** — wire up a production-style AKS with Workload Identity, Key Vault, and observability.
-6. **Demo 07** — apply private networking + secret-handling patterns to a 3-tier app.
-7. **Demo 08** — graduate to a fully private AKS landing zone with Firewall egress lockdown, Bastion-only access, and private ACR.
-8. Read **`docs/enterprise-concepts.md`** and **`docs/ci-cd-pipeline.md`** for
-   the surrounding operating model.
-
-## Best practices summary
-
-The full list lives in [`docs/enterprise-concepts.md`](docs/enterprise-concepts.md);
-here is the short version:
-
-1. **Remote state on Azure Storage**, with versioning + soft delete + RBAC.
-2. **One state file per environment per workload** — small blast radius.
-3. **Pin Terraform and provider versions** (`required_version`, `~>` constraints).
-4. **Treat modules as APIs** — typed inputs, validation, structured outputs, versioned.
-5. **No service-principal secrets in CI** — use OIDC federated credentials.
-6. **No secrets in code or outputs** — use `random_password`, Key Vault, and
-   App Service / Workload Identity references.
-7. **Defense-in-depth**: `terraform fmt`/`validate`, `tflint`, `tfsec`/`checkov`,
-   OPA/Sentinel on plan, plus Azure Policy at runtime.
-8. **Plan before apply**, always. PR-comment the plan for reviewers.
-9. **Gate production** behind manual approvals; never auto-apply to prod.
-10. **Detect drift** with scheduled `terraform plan` and alerts.
-11. **Adopt existing resources** via `import {}` blocks, never by editing state by hand.
-12. **Tag consistently** (`environment`, `owner`, `cost_center`, `managed_by`) and
-    enforce via Azure Policy.
-
-## How to run any demo
+## Usage
 
 ```bash
-cd demos/<demo-folder>
 terraform init
-terraform plan
-terraform apply
-# ...and when you're done:
-terraform destroy
+
+terraform apply \
+  -var "environment=dev" \
+  -var "location=eastus" \
+  -var "jumpbox_admin_password=<a-strong-password>" \
+  -var "operator_object_id=$(az ad signed-in-user show --query id -o tsv)"
 ```
 
-> ⚠️ Some demos (06, 07, 08) provision paid Azure resources (AKS, App Service Plan,
-> SQL DB, Azure Firewall, Bastion, etc.). Always `terraform destroy` after
-> experimenting to avoid ongoing charges.
+All other variables have sensible defaults (see `variables.tf`). To customise the address spaces or VM sizes, copy the defaults and override in a `terraform.tfvars` file.
+
+> ⚠️ **Cost warning.** This configuration provisions expensive Azure resources:
+> Azure Firewall (~$900/mo), Bastion (~$140/mo), AKS control plane, Premium ACR, VMs, and public IPs.
+> Always run `terraform destroy` when done experimenting.
+
+## Connecting to the cluster
+
+1. In the Azure portal, open the jumpbox VM → **Connect → Bastion**.
+2. Log in with `jumpbox_admin_username` / `jumpbox_admin_password`.
+3. On the jumpbox:
+
+   ```bash
+   az login
+   az aks get-credentials -g rg-paks-<env>-spoke -n aks-paks-<env>
+   kubectl get nodes
+   ```
+
+   The `kubectl` call resolves the private API FQDN to a **private IP** via the
+   Private DNS Zone linked to the spoke VNet.
+
+4. To push an image:
+
+   ```bash
+   az acr login --name <acr-name-from-outputs>
+   docker push <login_server>/<image>:<tag>
+   ```
+
+## Why this design?
+
+- **Private cluster** removes the public API endpoint — required by PCI, HIPAA, and most internal banking / finance security baselines.
+- **BYO Private DNS zone** lets multiple spokes resolve the API name and gives Terraform full lifecycle ownership of the zone (auditable, versioned, destroyable).
+- **User-assigned MI for AKS** is mandatory with a BYO DNS zone — AKS needs `Private DNS Zone Contributor` on the zone *before* the cluster is created.
+- **Azure Firewall + UDR** centralises all egress through a single auditable point. AKS has a published list of required FQDNs and ports; this repo encodes them in a Firewall Policy.
+- **Private ACR** prevents image exfiltration and external pull-through. The kubelet authenticates via MSI — no registry secrets in the cluster.
+- **Bastion + jumpbox** is the standard "operators only" path. No public IPs on VMs, no open NSG ports.
+
+## Egress rules
+
+AKS [requires specific egress](https://learn.microsoft.com/azure/aks/limit-egress-traffic). This repo implements a minimal allow-list in the Firewall Policy:
+
+**Network rules**
+- TCP/9000 to `AzureCloud.<region>` (tunnel front-end)
+- UDP/1194 to `AzureCloud.<region>` (legacy tunnel)
+- UDP/123 to `*` (NTP)
+- TCP/443 to `AzureCloud.<region>`, `AzureMonitor`, `MicrosoftContainerRegistry`
+
+**Application rules (HTTPS)**
+- `AzureKubernetesService` FQDN tag (single line, covers the full official list)
+- `mcr.microsoft.com`, `*.data.mcr.microsoft.com`, `*.cdn.mscr.io`
+- `management.azure.com`, `login.microsoftonline.com`
+- `packages.microsoft.com`, `acs-mirror.azureedge.net`
+- `*.ods.opinsights.azure.com`, `*.oms.opinsights.azure.com`, `*.monitoring.azure.com`
+
+## Further reading
+
+- [`docs/enterprise-concepts.md`](docs/enterprise-concepts.md) — state strategy, module tiers, environments, identity, policy-as-code, drift, naming/tagging.
+- [`docs/ci-cd-pipeline.md`](docs/ci-cd-pipeline.md) — reference GitHub Actions pipeline using Azure OIDC with plan-as-PR-comment and gated production apply.
+
+## Recommended next steps
+
+- Add **Azure Policy add-on** (`azure_policy_enabled = true` already set) and **Defender for Containers**.
+- Replace the jumpbox with **AKS Run Command** (`az aks command invoke`) for an even tighter perimeter.
+- Add **Application Gateway (private IP)** or **NGINX Ingress** for inbound traffic.
+- Add a second spoke for data services (SQL Managed Instance, Cosmos DB) and peer it through the hub.
+- Enable **Workload Identity** on application pods to access Key Vault without secrets.
+
