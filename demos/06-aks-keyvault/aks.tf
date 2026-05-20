@@ -1,9 +1,9 @@
 resource "azurerm_kubernetes_cluster" "this" {
-  name                      = "aks-${local.name_suffix}"
-  resource_group_name       = azurerm_resource_group.this.name
-  location                  = azurerm_resource_group.this.location
-  dns_prefix                = "aks-${local.name_suffix}"
-  kubernetes_version        = var.kubernetes_version
+  name                              = "aks-${local.name_suffix}"
+  resource_group_name               = azurerm_resource_group.this.name
+  location                          = azurerm_resource_group.this.location
+  dns_prefix                        = "aks-${local.name_suffix}"
+  kubernetes_version                = var.kubernetes_version
   role_based_access_control_enabled = true
   oidc_issuer_enabled               = true
   workload_identity_enabled         = true
@@ -11,13 +11,13 @@ resource "azurerm_kubernetes_cluster" "this" {
   tags                              = local.tags
 
   default_node_pool {
-    name                 = "system"
-    vm_size              = var.node_vm_size
-    auto_scaling_enabled = true
-    min_count            = var.node_count_min
-    max_count            = var.node_count_max
-    os_disk_size_gb      = 64
-    type                 = "VirtualMachineScaleSets"
+    name                         = "system"
+    vm_size                      = var.node_vm_size
+    auto_scaling_enabled         = true
+    min_count                    = var.node_count_min
+    max_count                    = var.node_count_max
+    os_disk_size_gb              = 64
+    type                         = "VirtualMachineScaleSets"
     only_critical_addons_enabled = true
   }
 
@@ -79,6 +79,5 @@ resource "azurerm_monitor_diagnostic_setting" "aks" {
 
   metric {
     category = "AllMetrics"
-    enabled  = true
   }
 }

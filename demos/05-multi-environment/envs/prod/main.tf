@@ -24,10 +24,10 @@ module "app" {
   https_only       = true
 
   tags = {
-    cost_center  = "engineering"
-    data_class   = "confidential"
-    backup       = "required"
-    pager_team   = "demo-app-oncall"
+    cost_center = "engineering"
+    data_class  = "confidential"
+    backup      = "required"
+    pager_team  = "demo-app-oncall"
   }
 }
 

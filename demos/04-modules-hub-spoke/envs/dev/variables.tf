@@ -20,9 +20,9 @@ variable "hub_subnets" {
   description = "Hub subnets."
   type        = map(string)
   default = {
-    shared    = "10.0.1.0/24"
-    bastion   = "10.0.2.0/27" # AzureBastionSubnet sized
-    firewall  = "10.0.3.0/26"
+    shared   = "10.0.1.0/24"
+    bastion  = "10.0.2.0/27" # AzureBastionSubnet sized
+    firewall = "10.0.3.0/26"
   }
 }
 

@@ -15,7 +15,7 @@ output "container_name" {
 
 output "backend_config_example" {
   description = "Copy/paste backend snippet for downstream configurations."
-  value = <<-EOT
+  value       = <<-EOT
     terraform {
       backend "azurerm" {
         resource_group_name  = "${azurerm_resource_group.state.name}"

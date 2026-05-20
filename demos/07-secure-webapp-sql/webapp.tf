@@ -35,9 +35,9 @@ resource "azurerm_linux_web_app" "this" {
   # never by value. This way the secret never enters app settings, logs,
   # or Terraform output in clear text.
   app_settings = {
-    WEBSITE_RUN_FROM_PACKAGE        = "1"
-    SQL_CONNECTION_STRING           = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.sql_connection_string.versionless_id})"
-    KEY_VAULT_URI                   = azurerm_key_vault.this.vault_uri
+    WEBSITE_RUN_FROM_PACKAGE         = "1"
+    SQL_CONNECTION_STRING            = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.sql_connection_string.versionless_id})"
+    KEY_VAULT_URI                    = azurerm_key_vault.this.vault_uri
     APPLICATIONINSIGHTS_ENABLE_AGENT = "true"
   }
 }
