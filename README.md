@@ -1,56 +1,84 @@
 # terraform-azure
 
-Learning Terraform concepts with Azure through small hands-on demos.
+A hands-on learning repository that progresses from **Terraform basics** to
+**enterprise-grade scenarios** on Azure. Each demo is self-contained and
+explains both the *what* and the *why*.
 
-## What you will learn
+## Demo progression
 
-- Terraform workflow (`init`, `plan`, `apply`, `destroy`)
-- Providers, variables, outputs, and local values
-- Reusable naming patterns
-- Resource dependencies in Azure
-- Practical best practices for Terraform on Azure
+| #   | Demo                                                  | Concepts                                                                                   |
+| --- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 01  | [`demos/01-resource-group`](demos/01-resource-group)             | Providers, variables, outputs, tagging                                                     |
+| 02  | [`demos/02-storage-account`](demos/02-storage-account)           | Dependencies, naming constraints, validation, `random_string`                              |
+| 03  | [`demos/03-remote-state-backend`](demos/03-remote-state-backend) | Remote state on Azure Storage, versioning, soft delete, bootstrap pattern                  |
+| 04  | [`demos/04-modules-hub-spoke`](demos/04-modules-hub-spoke)       | Reusable modules, `for_each` over a map, hub-and-spoke VNet topology, bidirectional peering |
+| 05  | [`demos/05-multi-environment`](demos/05-multi-environment)       | Per-environment root modules with a shared module, dev vs prod sizing & tags               |
+| 06  | [`demos/06-aks-keyvault`](demos/06-aks-keyvault)                 | AKS with managed identity, Workload Identity (OIDC), Key Vault (RBAC), Log Analytics       |
+| 07  | [`demos/07-secure-webapp-sql`](demos/07-secure-webapp-sql)       | Private endpoints, Private DNS Zones, App Service VNet integration, Key Vault references   |
+
+## Deep-dive documents
+
+- [`docs/enterprise-concepts.md`](docs/enterprise-concepts.md) — state strategy,
+  module tiers, environments, identity, policy-as-code, drift, import, day-2 fires,
+  naming/tagging, recommended repo layout.
+- [`docs/ci-cd-pipeline.md`](docs/ci-cd-pipeline.md) — reference GitHub Actions
+  pipeline using Azure OIDC, with plan-as-PR-comment and gated production apply.
 
 ## Prerequisites
 
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
-- Azure CLI (`az`) installed and logged in:
+- Azure CLI — log in once before running anything:
+
+  ```bash
+  az login
+  az account set --subscription "<your subscription id>"
+  ```
+
+## Suggested learning path
+
+1. **Demos 01–02** — get the muscle memory of `init / plan / apply / destroy`,
+   variables, outputs, and basic Azure resource constraints.
+2. **Demo 03** — set up remote state. Every subsequent enterprise pattern depends on this.
+3. **Demo 04** — learn modules and `for_each`. Hub-and-spoke is the canonical
+   landing-zone topology.
+4. **Demo 05** — split into environments. Understand isolation and promotion.
+5. **Demo 06** — wire up a production-style AKS with Workload Identity, Key Vault, and observability.
+6. **Demo 07** — apply private networking + secret-handling patterns to a 3-tier app.
+7. Read **`docs/enterprise-concepts.md`** and **`docs/ci-cd-pipeline.md`** for
+   the surrounding operating model.
+
+## Best practices summary
+
+The full list lives in [`docs/enterprise-concepts.md`](docs/enterprise-concepts.md);
+here is the short version:
+
+1. **Remote state on Azure Storage**, with versioning + soft delete + RBAC.
+2. **One state file per environment per workload** — small blast radius.
+3. **Pin Terraform and provider versions** (`required_version`, `~>` constraints).
+4. **Treat modules as APIs** — typed inputs, validation, structured outputs, versioned.
+5. **No service-principal secrets in CI** — use OIDC federated credentials.
+6. **No secrets in code or outputs** — use `random_password`, Key Vault, and
+   App Service / Workload Identity references.
+7. **Defense-in-depth**: `terraform fmt`/`validate`, `tflint`, `tfsec`/`checkov`,
+   OPA/Sentinel on plan, plus Azure Policy at runtime.
+8. **Plan before apply**, always. PR-comment the plan for reviewers.
+9. **Gate production** behind manual approvals; never auto-apply to prod.
+10. **Detect drift** with scheduled `terraform plan` and alerts.
+11. **Adopt existing resources** via `import {}` blocks, never by editing state by hand.
+12. **Tag consistently** (`environment`, `owner`, `cost_center`, `managed_by`) and
+    enforce via Azure Policy.
+
+## How to run any demo
 
 ```bash
-az login
-```
-
-## Demo structure
-
-- `demos/01-resource-group` - basic provider setup, variables, and an Azure resource group
-- `demos/02-storage-account` - adds a storage account with naming rules and dependencies
-
-## Run a demo
-
-```bash
-cd demos/01-resource-group
+cd demos/<demo-folder>
 terraform init
-terraform plan -var "resource_group_name=rg-tf-demo-dev" -var "location=eastus"
-terraform apply -var "resource_group_name=rg-tf-demo-dev" -var "location=eastus"
-terraform destroy -var "resource_group_name=rg-tf-demo-dev" -var "location=eastus"
+terraform plan
+terraform apply
+# ...and when you're done:
+terraform destroy
 ```
 
-For demo 2, use the same commands in `demos/02-storage-account`.
-
-## Best practices when using Terraform with Azure
-
-1. **Use remote state** for team workflows (Azure Storage backend + state locking where available).
-2. **Pin provider and Terraform versions** to avoid unexpected breaking changes.
-3. **Use variables and validation** to avoid invalid Azure naming/region inputs.
-4. **Keep modules small and focused** (network, identity, compute, etc.).
-5. **Never commit secrets**; use environment variables, Azure Key Vault, or CI secret stores.
-6. **Tag resources consistently** for ownership, environment, and cost reporting.
-7. **Use separate state/workspaces per environment** (`dev`, `test`, `prod`) rather than one shared state.
-8. **Review `terraform plan` carefully** before every apply, especially in production.
-9. **Run `terraform fmt` and `terraform validate`** in local checks/CI.
-10. **Prefer managed identity/RBAC** over embedded credentials.
-
-## Suggested learning order
-
-1. Start with demo 1 to understand Terraform fundamentals with Azure.
-2. Continue with demo 2 to understand dependencies and naming constraints.
-3. Add your own module folder and split reusable logic as your next exercise.
+> ⚠️ Some demos (06, 07) provision paid Azure resources (AKS, App Service Plan,
+> SQL DB, etc.). Always `terraform destroy` after experimenting to avoid
+> ongoing charges.
