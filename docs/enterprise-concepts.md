@@ -18,7 +18,7 @@ top of an Azure Storage account with:
 - Public network access locked down or replaced with a private endpoint
 - RBAC-controlled access — granular per environment / per project
 
-See `demos/03-remote-state-backend` for a reference implementation.
+See `providers.tf` + the `azurerm` backend block (add to `providers.tf` for your environment) for a reference implementation.
 
 ### 1.2 State file layout
 
@@ -60,8 +60,9 @@ Treat modules like internal APIs:
 | **Published** module | Private/public registry | Semver tags           | Yes                    |
 
 Enterprises typically build a small set of golden modules (network, AKS,
-storage, web app) and require teams to use them. Demo 04 shows the structure of
-repo-local modules.
+storage, web app) and require teams to use them. This repo's `modules/` folder
+shows the structure of repo-local modules (`hub_network`, `hub_security`,
+`spoke_network`, `private_aks`, `private_acr`, `jumpbox`).
 
 ### Module design rules
 
@@ -80,7 +81,7 @@ Three popular approaches:
 
 1. **Directory per environment** (`envs/dev`, `envs/prod`) — most common in
    regulated enterprises. Strong isolation; each env has its own state and
-   pipeline. See `demos/05-multi-environment`.
+   pipeline. Use separate `terraform.tfvars` files per environment with this repo.
 2. **Workspaces** — `terraform workspace select prod`. Acceptable for small
    teams or short-lived environments (per-PR review apps). Use carefully — the
    code path is identical for dev and prod.
@@ -128,7 +129,8 @@ including generated passwords. Therefore:
   Identity, or `azurerm_key_vault_secret` consumed at runtime — not via
   Terraform-rendered values.
 
-Demo 07 illustrates this end-to-end.
+This repo illustrates this end-to-end: AKS uses Workload Identity, and ACR
+authentication is MSI-based — no registry secrets in the cluster.
 
 ---
 
