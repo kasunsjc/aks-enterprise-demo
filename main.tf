@@ -89,6 +89,7 @@ module "spoke_network" {
 # Module: jumpbox
 # Linux VM (no public IP) with cloud-init. Create BEFORE private_acr so that
 # the jumpbox MSI object ID is available for the AcrPull assignment in ACR.
+# The jumpbox AcrPull role assignment is managed by the private_acr module.
 # ---------------------------------------------------------------------------
 module "jumpbox" {
   source = "./modules/jumpbox"
@@ -101,13 +102,9 @@ module "jumpbox" {
   admin_username      = var.jumpbox_admin_username
   admin_password      = var.jumpbox_admin_password
 
-  # These IDs are used for role assignments on the AKS cluster and ACR.
-  # They are not yet created, so we pass placeholder-free references that
-  # Terraform will resolve after the cluster/ACR modules run.
-  # Role assignments are inside the jumpbox module itself, so Terraform
-  # correctly chains creation order.
+  # AKS role assignment (Cluster User) is managed inside the jumpbox module.
+  # The AcrPull role assignment for the jumpbox MSI is managed by private_acr.
   aks_cluster_id = module.private_aks.cluster_id
-  acr_id         = module.private_acr.acr_id
   tags           = local.tags
 }
 
@@ -183,7 +180,6 @@ module "monitoring" {
   source = "./modules/monitoring"
 
   name_suffix             = local.name_suffix
-  random_suffix           = random_string.suffix.result
   resource_group_name     = azurerm_resource_group.spoke.name
   location                = azurerm_resource_group.spoke.location
   aks_cluster_id          = module.private_aks.cluster_id

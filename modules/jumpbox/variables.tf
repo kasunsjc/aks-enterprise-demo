@@ -41,11 +41,6 @@ variable "aks_cluster_id" {
   type        = string
 }
 
-variable "acr_id" {
-  description = "Resource ID of the ACR (jumpbox MSI granted AcrPull)."
-  type        = string
-}
-
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)

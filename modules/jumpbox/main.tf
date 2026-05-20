@@ -74,9 +74,3 @@ resource "azurerm_role_assignment" "jumpbox_aks_user" {
   principal_id         = azurerm_linux_virtual_machine.jumpbox.identity[0].principal_id
 }
 
-# Allows `az acr login` / docker pull without admin credentials.
-resource "azurerm_role_assignment" "jumpbox_acr_pull" {
-  scope                = var.acr_id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_linux_virtual_machine.jumpbox.identity[0].principal_id
-}

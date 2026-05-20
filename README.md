@@ -1,8 +1,8 @@
 # AKS Enterprise Landing Zone
 
-A production-ready **private AKS** deployment on Azure, using a **hub-and-spoke** network topology with full egress control, zero public IP exposure, and Terraform modules.
+A learning and demo resource for exploring **private AKS** deployment on Azure, using a **hub-and-spoke** network topology with full egress control, zero public IP exposure, and Terraform modules — following production best practices throughout.
 
-No tutorials, no demos — this is the real thing.
+Use this repo to understand Terraform concepts, Azure networking patterns, and enterprise-grade AKS architecture.
 
 ## Architecture
 

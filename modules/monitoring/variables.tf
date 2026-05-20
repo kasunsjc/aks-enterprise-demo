@@ -3,11 +3,6 @@ variable "name_suffix" {
   type        = string
 }
 
-variable "random_suffix" {
-  description = "Short random string appended to globally-unique resource names."
-  type        = string
-}
-
 variable "resource_group_name" {
   description = "Resource group for monitoring resources."
   type        = string

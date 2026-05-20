@@ -64,8 +64,8 @@ jobs:
         with:
           terraform_version: 1.9.0
       - run: terraform fmt -check -recursive
-      - run: terraform -chdir=envs/dev init -backend=false
-      - run: terraform -chdir=envs/dev validate
+      - run: terraform init -backend=false
+      - run: terraform validate
       - uses: terraform-linters/setup-tflint@v4
       - run: tflint --recursive
       - uses: aquasecurity/tfsec-action@v1.0.3
@@ -82,8 +82,8 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - uses: hashicorp/setup-terraform@v3
-      - run: terraform -chdir=envs/dev init
-      - run: terraform -chdir=envs/dev plan -out=tfplan
+      - run: terraform init
+      - run: terraform plan -var-file=envs/dev.tfvars -out=tfplan
       # Use a community action to post the plan as a PR comment.
 
   apply-dev:
@@ -99,8 +99,8 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - uses: hashicorp/setup-terraform@v3
-      - run: terraform -chdir=envs/dev init
-      - run: terraform -chdir=envs/dev apply -auto-approve
+      - run: terraform init
+      - run: terraform apply -var-file=envs/dev.tfvars -auto-approve
 ```
 
 ## Recommended add-ons

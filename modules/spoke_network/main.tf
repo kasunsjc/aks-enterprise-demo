@@ -21,7 +21,7 @@ resource "azurerm_subnet" "pe" {
   resource_group_name               = var.resource_group_name
   virtual_network_name              = azurerm_virtual_network.spoke.name
   address_prefixes                  = [var.subnet_cidr_pe]
-  private_endpoint_network_policies = "Enabled"
+  private_endpoint_network_policies = "Disabled"
 }
 
 resource "azurerm_subnet" "jumpbox" {
