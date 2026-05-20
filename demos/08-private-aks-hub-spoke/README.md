@@ -137,9 +137,38 @@ terraform apply \
 - **Egress lockdown** via Azure Firewall + UDR + FQDN tag.
 - **Premium ACR** with **private endpoint** and `AcrPull` role assignment.
 - **Bastion + jumpbox** as the operator entry point.
-- **Module-free single-root** demo deliberately: every resource is in front of
-  you so the wiring is obvious. In production, decompose into modules (see
-  demo 04).
+- **Module composition**: each concern lives in its own module; the root
+  `main.tf` wires them together through module output references.
+
+## Module layout
+
+```
+demos/08-private-aks-hub-spoke/
+├── main.tf            # Resource groups + module calls
+├── variables.tf       # All input variables
+├── outputs.tf         # Delegates to module outputs
+├── providers.tf
+└── modules/
+    ├── hub_network/   # Hub VNet + 3 named subnets
+    ├── hub_security/  # Azure Firewall (policy + rules) + Azure Bastion
+    ├── spoke_network/ # Spoke VNet + subnets + peerings + UDR
+    ├── private_aks/   # BYO DNS zone, UAMI, Log Analytics, AKS cluster
+    ├── private_acr/   # Premium ACR + private endpoint + DNS zone
+    └── jumpbox/       # Linux VM (no public IP) + cloud-init
+```
+
+The dependency chain flows naturally through module output references:
+
+```
+hub_network ──▶ hub_security (needs subnet IDs for FW + Bastion)
+hub_network ──▶ spoke_network (VNet ID/name for peering)
+hub_security ──▶ spoke_network (firewall_private_ip → UDR next hop)
+spoke_network ──▶ private_aks (aks_subnet_id, spoke_vnet_id)
+spoke_network ──▶ private_acr (pe_subnet_id, spoke_vnet_id)
+jumpbox ──▶ private_acr (jumpbox_identity_object_id → AcrPull)
+private_aks ──▶ private_acr (kubelet_identity_object_id → AcrPull)
+private_aks + private_acr ──▶ jumpbox (cluster_id, acr_id → role assignments)
+```
 
 ## Recommended next steps
 
