@@ -85,8 +85,8 @@ hub_network  ──▶  spoke_network  (hub VNet ID + name for peering)
 hub_security ──▶  spoke_network  (firewall_private_ip → UDR next hop)
 spoke_network ──▶ private_aks    (aks_subnet_id, spoke_vnet_id)
 spoke_network ──▶ private_acr    (pe_subnet_id, spoke_vnet_id)
+private_aks ──▶ jumpbox          (cluster_id → Cluster User role)
 jumpbox + private_aks ──▶ private_acr  (MSI object IDs → AcrPull)
-private_aks + private_acr ──▶ jumpbox  (cluster_id, acr_id → role assignments)
 ```
 
 ## Prerequisites
@@ -200,8 +200,7 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 4. To push an image:
 
    ```bash
-   az acr login --name <acr-name-from-outputs>
-   docker push <login_server>/<image>:<tag>
+   az acr build --registry <acr-name-from-outputs> --image <image>:<tag> .
    ```
 
 ## Why this design?

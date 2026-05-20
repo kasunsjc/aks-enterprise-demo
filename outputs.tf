@@ -47,9 +47,8 @@ output "next_steps" {
          az login
          az aks get-credentials -g ${azurerm_resource_group.spoke.name} -n ${module.private_aks.cluster_name}
          kubectl get nodes
-    4. To push an image privately:
-         az acr login --name ${module.private_acr.acr_name}
-         docker push ${module.private_acr.login_server}/<your-image>:tag
+    4. To push an image privately (from your operator machine or CI):
+         az acr build --registry ${module.private_acr.acr_name} --image <your-image>:tag .
     5. Open Grafana (via Bastion/jumpbox, private only):
          ${module.monitoring.grafana_endpoint}
   EOT
