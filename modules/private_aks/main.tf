@@ -55,7 +55,7 @@ resource "azurerm_role_assignment" "aks_network_contributor" {
 # Log Analytics workspace — used by Container Insights / OMS agent.
 # ============================================================================
 resource "azurerm_log_analytics_workspace" "this" {
-  name                = "log-${var.name_suffix}-${var.random_suffix}"
+  name                = "log-${var.name_suffix}-${var.unique_identifier}"
   resource_group_name = var.resource_group_name
   location            = var.location
   sku                 = "PerGB2018"

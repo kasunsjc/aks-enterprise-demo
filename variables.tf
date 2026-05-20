@@ -1,3 +1,13 @@
+variable "unique_identifier" {
+  description = "Short (≤6 lowercase alphanumeric) identifier — e.g. an org abbreviation — appended to globally-unique resource names (ACR, Log Analytics). Deterministic and human-readable; replaces the old random suffix."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9]{1,6}$", var.unique_identifier))
+    error_message = "unique_identifier must be 1-6 lowercase alphanumeric characters (e.g. 'contoso', 'abc123')."
+  }
+}
+
 variable "environment" {
   description = "Environment name (e.g., dev, prod). Used in resource naming."
   type        = string

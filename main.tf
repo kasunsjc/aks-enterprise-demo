@@ -5,14 +5,6 @@ locals {
   })
 }
 
-resource "random_string" "suffix" {
-  length  = 6
-  upper   = false
-  lower   = true
-  numeric = true
-  special = false
-}
-
 # ---------------------------------------------------------------------------
 # Resource groups — one for shared hub resources, one for spoke workloads.
 # ---------------------------------------------------------------------------
@@ -117,7 +109,7 @@ module "private_aks" {
   source = "./modules/private_aks"
 
   name_suffix             = local.name_suffix
-  random_suffix           = random_string.suffix.result
+  unique_identifier       = var.unique_identifier
   resource_group_name     = azurerm_resource_group.spoke.name
   location                = azurerm_resource_group.spoke.location
   kubernetes_version      = var.kubernetes_version
@@ -157,7 +149,7 @@ module "private_acr" {
   source = "./modules/private_acr"
 
   name_suffix                = local.name_suffix
-  random_suffix              = random_string.suffix.result
+  unique_identifier          = var.unique_identifier
   resource_group_name        = azurerm_resource_group.spoke.name
   location                   = azurerm_resource_group.spoke.location
   pe_subnet_id               = module.spoke_network.pe_subnet_id

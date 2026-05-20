@@ -3,8 +3,8 @@ variable "name_suffix" {
   type        = string
 }
 
-variable "random_suffix" {
-  description = "Short random string appended to the ACR name (must be globally unique)."
+variable "unique_identifier" {
+  description = "Short identifier appended to globally-unique resource names (ACR). Should match the root module's unique_identifier."
   type        = string
 }
 

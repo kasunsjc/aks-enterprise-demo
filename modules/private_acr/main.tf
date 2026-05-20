@@ -2,7 +2,7 @@
 # Premium ACR — public access disabled, all pulls via privatelink.azurecr.io.
 # ============================================================================
 resource "azurerm_container_registry" "this" {
-  name                          = "acr${replace(var.name_suffix, "-", "")}${var.random_suffix}"
+  name                          = "acr${replace(var.name_suffix, "-", "")}${var.unique_identifier}"
   resource_group_name           = var.resource_group_name
   location                      = var.location
   sku                           = "Premium" # private endpoints require Premium SKU

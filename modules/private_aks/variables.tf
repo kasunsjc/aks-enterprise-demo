@@ -3,8 +3,8 @@ variable "name_suffix" {
   type        = string
 }
 
-variable "random_suffix" {
-  description = "Short random string appended to globally-unique resources (Log Analytics)."
+variable "unique_identifier" {
+  description = "Short identifier appended to globally-unique resource names (Log Analytics). Should match the root module's unique_identifier."
   type        = string
 }
 

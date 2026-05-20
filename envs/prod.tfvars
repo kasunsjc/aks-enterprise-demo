@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------------
 
 environment        = "prod"
+unique_identifier  = "contoso" # ≤6 chars; appended to ACR and Log Analytics names
 location           = "eastus"
 kubernetes_version = "1.30"
 
