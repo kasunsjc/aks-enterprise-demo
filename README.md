@@ -15,6 +15,7 @@ explains both the *what* and the *why*.
 | 05  | [`demos/05-multi-environment`](demos/05-multi-environment)       | Per-environment root modules with a shared module, dev vs prod sizing & tags               |
 | 06  | [`demos/06-aks-keyvault`](demos/06-aks-keyvault)                 | AKS with managed identity, Workload Identity (OIDC), Key Vault (RBAC), Log Analytics       |
 | 07  | [`demos/07-secure-webapp-sql`](demos/07-secure-webapp-sql)       | Private endpoints, Private DNS Zones, App Service VNet integration, Key Vault references   |
+| 08  | [`demos/08-private-aks-hub-spoke`](demos/08-private-aks-hub-spoke) | Private AKS in hub-and-spoke, Azure Firewall (egress lockdown), Bastion + jumpbox, private ACR, BYO Private DNS for the API |
 
 ## Deep-dive documents
 
@@ -44,7 +45,8 @@ explains both the *what* and the *why*.
 4. **Demo 05** — split into environments. Understand isolation and promotion.
 5. **Demo 06** — wire up a production-style AKS with Workload Identity, Key Vault, and observability.
 6. **Demo 07** — apply private networking + secret-handling patterns to a 3-tier app.
-7. Read **`docs/enterprise-concepts.md`** and **`docs/ci-cd-pipeline.md`** for
+7. **Demo 08** — graduate to a fully private AKS landing zone with Firewall egress lockdown, Bastion-only access, and private ACR.
+8. Read **`docs/enterprise-concepts.md`** and **`docs/ci-cd-pipeline.md`** for
    the surrounding operating model.
 
 ## Best practices summary
@@ -79,6 +81,6 @@ terraform apply
 terraform destroy
 ```
 
-> ⚠️ Some demos (06, 07) provision paid Azure resources (AKS, App Service Plan,
-> SQL DB, etc.). Always `terraform destroy` after experimenting to avoid
-> ongoing charges.
+> ⚠️ Some demos (06, 07, 08) provision paid Azure resources (AKS, App Service Plan,
+> SQL DB, Azure Firewall, Bastion, etc.). Always `terraform destroy` after
+> experimenting to avoid ongoing charges.
