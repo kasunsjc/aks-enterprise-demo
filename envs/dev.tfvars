@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------------
 
 environment        = "dev"
-unique_identifier  = "contoso" # ≤6 chars; appended to ACR and Log Analytics names
+unique_identifier  = "contoso" # ≤6 chars; org/subscription identifier. Full ACR name: acrpaksdev<id>, LAW: log-paks-dev-<id>
 location           = "eastus"
 kubernetes_version = "1.30"
 
