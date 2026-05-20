@@ -1,0 +1,3 @@
+resource_group_name    = "rg-tf-demo-storage-dev"
+location               = "eastus"
+storage_account_prefix = "sttfdev"
