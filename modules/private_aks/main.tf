@@ -59,7 +59,7 @@ resource "azurerm_log_analytics_workspace" "this" {
   resource_group_name = var.resource_group_name
   location            = var.location
   sku                 = "PerGB2018"
-  retention_in_days   = 30
+  retention_in_days   = var.log_retention_days
   tags                = var.tags
 }
 
@@ -85,10 +85,10 @@ resource "azurerm_kubernetes_cluster" "this" {
 
   default_node_pool {
     name                         = "system"
-    vm_size                      = "Standard_D2s_v5"
+    vm_size                      = var.system_node_vm_size
     auto_scaling_enabled         = true
-    min_count                    = 1
-    max_count                    = 3
+    min_count                    = var.system_node_min_count
+    max_count                    = var.system_node_max_count
     vnet_subnet_id               = var.aks_subnet_id
     only_critical_addons_enabled = true
     os_disk_size_gb              = 64
@@ -130,10 +130,10 @@ resource "azurerm_kubernetes_cluster" "this" {
 resource "azurerm_kubernetes_cluster_node_pool" "user" {
   name                  = "user"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.this.id
-  vm_size               = "Standard_D2s_v5"
+  vm_size               = var.user_node_vm_size
   auto_scaling_enabled  = true
-  min_count             = 1
-  max_count             = 5
+  min_count             = var.user_node_min_count
+  max_count             = var.user_node_max_count
   mode                  = "User"
   vnet_subnet_id        = var.aks_subnet_id
   os_disk_size_gb       = 128

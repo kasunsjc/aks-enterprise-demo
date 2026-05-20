@@ -54,6 +54,48 @@ variable "operator_object_id" {
   type        = string
 }
 
+variable "system_node_vm_size" {
+  description = "VM size for the system node pool."
+  type        = string
+  default     = "Standard_D2s_v5"
+}
+
+variable "system_node_min_count" {
+  description = "Minimum node count for the system node pool."
+  type        = number
+  default     = 1
+}
+
+variable "system_node_max_count" {
+  description = "Maximum node count for the system node pool."
+  type        = number
+  default     = 3
+}
+
+variable "user_node_vm_size" {
+  description = "VM size for the user (workload) node pool."
+  type        = string
+  default     = "Standard_D2s_v5"
+}
+
+variable "user_node_min_count" {
+  description = "Minimum node count for the user node pool."
+  type        = number
+  default     = 1
+}
+
+variable "user_node_max_count" {
+  description = "Maximum node count for the user node pool."
+  type        = number
+  default     = 5
+}
+
+variable "log_retention_days" {
+  description = "Log Analytics workspace retention in days."
+  type        = number
+  default     = 30
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)

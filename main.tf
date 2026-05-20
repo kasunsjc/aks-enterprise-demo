@@ -130,6 +130,13 @@ module "private_aks" {
   hub_resource_group_name = azurerm_resource_group.hub.name
   tenant_id               = data.azurerm_client_config.current.tenant_id
   operator_object_id      = var.operator_object_id
+  system_node_vm_size     = var.system_node_vm_size
+  system_node_min_count   = var.system_node_min_count
+  system_node_max_count   = var.system_node_max_count
+  user_node_vm_size       = var.user_node_vm_size
+  user_node_min_count     = var.user_node_min_count
+  user_node_max_count     = var.user_node_max_count
+  log_retention_days      = var.log_retention_days
   tags                    = local.tags
 }
 

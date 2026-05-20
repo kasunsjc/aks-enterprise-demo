@@ -66,6 +66,52 @@ variable "jumpbox_vm_size" {
   default     = "Standard_B2s"
 }
 
+# ---------------------------------------------------------------------------
+# AKS node pool sizing
+# ---------------------------------------------------------------------------
+
+variable "system_node_vm_size" {
+  description = "VM size for the AKS system node pool."
+  type        = string
+  default     = "Standard_D2s_v5"
+}
+
+variable "system_node_min_count" {
+  description = "Minimum node count for the AKS system node pool."
+  type        = number
+  default     = 1
+}
+
+variable "system_node_max_count" {
+  description = "Maximum node count for the AKS system node pool."
+  type        = number
+  default     = 3
+}
+
+variable "user_node_vm_size" {
+  description = "VM size for the AKS user (workload) node pool."
+  type        = string
+  default     = "Standard_D2s_v5"
+}
+
+variable "user_node_min_count" {
+  description = "Minimum node count for the AKS user node pool."
+  type        = number
+  default     = 1
+}
+
+variable "user_node_max_count" {
+  description = "Maximum node count for the AKS user node pool."
+  type        = number
+  default     = 5
+}
+
+variable "log_retention_days" {
+  description = "Log Analytics workspace retention in days."
+  type        = number
+  default     = 30
+}
+
 variable "jumpbox_admin_username" {
   description = "Admin username on the jumpbox VM."
   type        = string

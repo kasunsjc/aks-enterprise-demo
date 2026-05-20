@@ -96,19 +96,67 @@ private_aks + private_acr ──▶ jumpbox  (cluster_id, acr_id → role assign
   az account set --subscription "<your subscription id>"
   ```
 
+## Environments
+
+Three ready-to-use var files live under `envs/`. Each uses an isolated address
+space so all three environments can exist in the same subscription simultaneously.
+
+| File | Environment | Address spaces | AKS system pool | AKS user pool | Log retention |
+|---|---|---|---|---|---|
+| `envs/dev.tfvars` | `dev` | hub `10.0/16`, spoke `10.10/16` | D2s_v5 × 1–2 | D2s_v5 × 1–3 | 30 days |
+| `envs/test.tfvars` | `test` | hub `10.1/16`, spoke `10.11/16` | D2s_v5 × 1–3 | D4s_v5 × 1–5 | 60 days |
+| `envs/prod.tfvars` | `prod` | hub `10.2/16`, spoke `10.12/16` | D4s_v5 × 2–5 | D8s_v5 × 3–10 | 90 days |
+
+Two variables are intentionally **not** in the var files because they are secret
+or identity-specific:
+
+| Variable | How to supply |
+|---|---|
+| `jumpbox_admin_password` | `export TF_VAR_jumpbox_admin_password='...'` |
+| `operator_object_id` | `export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)` |
+
 ## Usage
+
+### Deploy to a specific environment
 
 ```bash
 terraform init
 
-terraform apply \
-  -var "environment=dev" \
-  -var "location=eastus" \
-  -var "jumpbox_admin_password=<a-strong-password>" \
-  -var "operator_object_id=$(az ad signed-in-user show --query id -o tsv)"
+# Set secrets once as env vars (never in var files)
+export TF_VAR_jumpbox_admin_password='<a-strong-password>'
+export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)
+
+# Deploy dev
+terraform apply -var-file=envs/dev.tfvars
+
+# Deploy test
+terraform apply -var-file=envs/test.tfvars
+
+# Deploy prod (consider a separate state backend per env — see docs/enterprise-concepts.md)
+terraform apply -var-file=envs/prod.tfvars
 ```
 
-All other variables have sensible defaults (see `variables.tf`). To customise the address spaces or VM sizes, copy the defaults and override in a `terraform.tfvars` file.
+### Destroy an environment
+
+```bash
+terraform destroy -var-file=envs/dev.tfvars
+```
+
+### Separate state per environment (recommended for prod)
+
+Configure a remote backend in `providers.tf` with a different state key per
+environment. A common pattern uses the environment name as part of the blob path:
+
+```hcl
+backend "azurerm" {
+  resource_group_name  = "rg-tfstate"
+  storage_account_name = "sttfstate<org>"
+  container_name       = "tfstate"
+  key                  = "aks-landing-zone/<env>.tfstate"   # e.g. aks-landing-zone/prod.tfstate
+}
+```
+
+Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone/prod.tfstate"`
 
 > ⚠️ **Cost warning.** This configuration provisions expensive Azure resources:
 > Azure Firewall (~$900/mo), Bastion (~$140/mo), AKS control plane, Premium ACR, VMs, and public IPs.
