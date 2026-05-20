@@ -133,11 +133,22 @@ module "private_aks" {
   system_node_vm_size     = var.system_node_vm_size
   system_node_min_count   = var.system_node_min_count
   system_node_max_count   = var.system_node_max_count
-  user_node_vm_size       = var.user_node_vm_size
-  user_node_min_count     = var.user_node_min_count
-  user_node_max_count     = var.user_node_max_count
   log_retention_days      = var.log_retention_days
   tags                    = local.tags
+}
+
+# ---------------------------------------------------------------------------
+# Module: aks_node_pools
+# Additional user node pools — managed independently of the cluster resource.
+# Add, remove, or resize pools without touching the private_aks module.
+# ---------------------------------------------------------------------------
+module "aks_node_pools" {
+  source = "./modules/aks_node_pools"
+
+  kubernetes_cluster_id = module.private_aks.cluster_id
+  aks_subnet_id         = module.spoke_network.aks_subnet_id
+  node_pools            = var.node_pools
+  tags                  = local.tags
 }
 
 # ---------------------------------------------------------------------------
@@ -160,4 +171,27 @@ module "private_acr" {
   operator_object_id         = var.operator_object_id
   jumpbox_identity_object_id = module.jumpbox.identity_object_id
   tags                       = local.tags
+}
+
+# ---------------------------------------------------------------------------
+# Module: monitoring
+# Azure Monitor workspace (Managed Prometheus) + Managed Grafana.
+# Both services use private endpoints. Recording and alerting rules are in
+# separate submodules for independent lifecycle management.
+# ---------------------------------------------------------------------------
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  name_suffix             = local.name_suffix
+  random_suffix           = random_string.suffix.result
+  resource_group_name     = azurerm_resource_group.spoke.name
+  location                = azurerm_resource_group.spoke.location
+  aks_cluster_id          = module.private_aks.cluster_id
+  pe_subnet_id            = module.spoke_network.pe_subnet_id
+  spoke_vnet_id           = module.spoke_network.vnet_id
+  hub_vnet_id             = module.hub_network.vnet_id
+  hub_resource_group_name = azurerm_resource_group.hub.name
+  action_group_ids        = var.alert_action_group_ids
+  grafana_major_version   = var.grafana_major_version
+  tags                    = local.tags
 }

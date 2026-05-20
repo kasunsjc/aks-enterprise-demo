@@ -72,24 +72,6 @@ variable "system_node_max_count" {
   default     = 3
 }
 
-variable "user_node_vm_size" {
-  description = "VM size for the user (workload) node pool."
-  type        = string
-  default     = "Standard_D2s_v5"
-}
-
-variable "user_node_min_count" {
-  description = "Minimum node count for the user node pool."
-  type        = number
-  default     = 1
-}
-
-variable "user_node_max_count" {
-  description = "Maximum node count for the user node pool."
-  type        = number
-  default     = 5
-}
-
 variable "log_retention_days" {
   description = "Log Analytics workspace retention in days."
   type        = number

@@ -67,7 +67,7 @@ variable "jumpbox_vm_size" {
 }
 
 # ---------------------------------------------------------------------------
-# AKS node pool sizing
+# AKS system node pool sizing (part of the cluster resource — set at create)
 # ---------------------------------------------------------------------------
 
 variable "system_node_vm_size" {
@@ -88,28 +88,57 @@ variable "system_node_max_count" {
   default     = 3
 }
 
-variable "user_node_vm_size" {
-  description = "VM size for the AKS user (workload) node pool."
-  type        = string
-  default     = "Standard_D2s_v5"
-}
+# ---------------------------------------------------------------------------
+# Additional AKS user node pools (managed by aks_node_pools module)
+# ---------------------------------------------------------------------------
 
-variable "user_node_min_count" {
-  description = "Minimum node count for the AKS user node pool."
-  type        = number
-  default     = 1
-}
-
-variable "user_node_max_count" {
-  description = "Maximum node count for the AKS user node pool."
-  type        = number
-  default     = 5
+variable "node_pools" {
+  description = <<-EOT
+    Map of additional user node pools. The map key is the pool name (max 12
+    lowercase alphanumeric characters starting with a letter).
+    Example:
+      node_pools = {
+        user = { vm_size = "Standard_D4s_v5", min_count = 1, max_count = 5 }
+      }
+  EOT
+  type = map(object({
+    vm_size         = string
+    min_count       = number
+    max_count       = number
+    os_disk_size_gb = optional(number, 128)
+    mode            = optional(string, "User")
+    node_labels     = optional(map(string), {})
+    node_taints     = optional(list(string), [])
+  }))
+  default = {
+    user = {
+      vm_size   = "Standard_D2s_v5"
+      min_count = 1
+      max_count = 5
+    }
+  }
 }
 
 variable "log_retention_days" {
   description = "Log Analytics workspace retention in days."
   type        = number
   default     = 30
+}
+
+# ---------------------------------------------------------------------------
+# Monitoring
+# ---------------------------------------------------------------------------
+
+variable "grafana_major_version" {
+  description = "Major version of Azure Managed Grafana to deploy (9 or 10)."
+  type        = number
+  default     = 10
+}
+
+variable "alert_action_group_ids" {
+  description = "List of Azure Monitor action group resource IDs to notify on Prometheus alerts. Leave empty to create rules without notifications."
+  type        = list(string)
+  default     = []
 }
 
 variable "jumpbox_admin_username" {

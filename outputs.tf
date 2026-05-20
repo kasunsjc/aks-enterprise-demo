@@ -44,5 +44,17 @@ output "next_steps" {
     3. To push an image privately:
          az acr login --name ${module.private_acr.acr_name}
          docker push ${module.private_acr.login_server}/<your-image>:tag
+    4. Open Grafana (via Bastion/jumpbox, private only):
+         ${module.monitoring.grafana_endpoint}
   EOT
+}
+
+output "grafana_endpoint" {
+  description = "Azure Managed Grafana endpoint (accessible via private endpoint from within the VNet)."
+  value       = module.monitoring.grafana_endpoint
+}
+
+output "monitor_workspace_id" {
+  description = "Azure Monitor workspace resource ID (Managed Prometheus backend)."
+  value       = module.monitoring.monitor_workspace_id
 }

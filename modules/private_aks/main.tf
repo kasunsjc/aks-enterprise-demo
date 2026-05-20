@@ -126,20 +126,6 @@ resource "azurerm_kubernetes_cluster" "this" {
   ]
 }
 
-# User-mode node pool for application workloads.
-resource "azurerm_kubernetes_cluster_node_pool" "user" {
-  name                  = "user"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.this.id
-  vm_size               = var.user_node_vm_size
-  auto_scaling_enabled  = true
-  min_count             = var.user_node_min_count
-  max_count             = var.user_node_max_count
-  mode                  = "User"
-  vnet_subnet_id        = var.aks_subnet_id
-  os_disk_size_gb       = 128
-  tags                  = var.tags
-}
-
 # Cluster admin role so the operator can run kubectl after get-credentials.
 resource "azurerm_role_assignment" "operator_cluster_admin" {
   scope                = azurerm_kubernetes_cluster.this.id
