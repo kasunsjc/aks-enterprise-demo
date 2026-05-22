@@ -7,18 +7,26 @@ locals {
       - ca-certificates
       - gnupg
       - apt-transport-https
+      - docker.io
+      - snapd
     runcmd:
       - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
       - curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
       - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
       - apt-get update
       - apt-get install -y kubectl
+      - az aks install-cli --kubelogin --kubelogin-install-location /usr/local/bin/kubelogin
+      - snap install helm --classic
+      - snap install k9s --classic
+      - systemctl enable docker
+      - systemctl start docker
+      - usermod -aG docker ${var.admin_username}
   CLOUDINIT
 }
 
 # ============================================================================
 # Jumpbox — no public IP; reachable only through Azure Bastion.
-# cloud-init installs Azure CLI and kubectl on first boot.
+# cloud-init installs Azure CLI, kubectl, kubelogin, Helm, k9s, and Docker on first boot.
 # ============================================================================
 resource "azurerm_network_interface" "jumpbox" {
   name                = "nic-${var.name_suffix}-jumpbox"
@@ -73,4 +81,3 @@ resource "azurerm_role_assignment" "jumpbox_aks_user" {
   role_definition_name = "Azure Kubernetes Service Cluster User Role"
   principal_id         = azurerm_linux_virtual_machine.jumpbox.identity[0].principal_id
 }
-

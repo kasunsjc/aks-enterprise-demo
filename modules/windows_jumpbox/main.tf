@@ -1,17 +1,23 @@
 locals {
-  # Bootstrap PowerShell: installs Chocolatey, then Azure CLI, kubectl, Helm, and git.
-  # Single-line form required for Custom Script Extension commandToExecute.
-  bootstrap_command = join("; ", [
-    "Set-ExecutionPolicy Bypass -Scope Process -Force",
-    "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12",
-    "iex ((New-Object Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))",
-    "choco install -y azure-cli kubernetes-cli helm git --no-progress",
-  ])
+  # Bootstrap PowerShell: installs Chocolatey, then Azure CLI, kubectl, kubelogin, Helm, git, Docker CLI, and Headlamp.
+  bootstrap_script = <<-PS1
+    $ErrorActionPreference = 'Stop'
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    if (-not (Test-Path "$env:ProgramData\\chocolatey\\bin\\choco.exe")) {
+      iex ((New-Object Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    }
+
+    & "$env:ProgramData\\chocolatey\\bin\\choco.exe" install -y azure-cli kubernetes-cli kubernetes-helm git docker-cli headlamp --no-progress
+    az aks install-cli --kubelogin
+  PS1
 }
 
 # ============================================================================
 # Windows Jumpbox — no public IP; reachable only through Azure Bastion (RDP).
-# A Custom Script Extension installs Azure CLI, kubectl, Helm, and git on
+# A Custom Script Extension installs Azure CLI, kubectl, kubelogin, Helm, git, Docker CLI,
+# and Headlamp on
 # first boot via Chocolatey.
 # ============================================================================
 resource "azurerm_network_interface" "windows_jumpbox" {
@@ -55,7 +61,7 @@ resource "azurerm_windows_virtual_machine" "windows_jumpbox" {
   }
 }
 
-# Custom Script Extension: installs Azure CLI, kubectl, Helm, and git via Chocolatey.
+# Custom Script Extension: installs Azure CLI, kubectl, Helm, git, Docker CLI, and Headlamp via Chocolatey.
 resource "azurerm_virtual_machine_extension" "bootstrap" {
   name                       = "bootstrap"
   virtual_machine_id         = azurerm_windows_virtual_machine.windows_jumpbox.id
@@ -66,7 +72,7 @@ resource "azurerm_virtual_machine_extension" "bootstrap" {
   tags                       = var.tags
 
   protected_settings = jsonencode({
-    commandToExecute = "powershell -ExecutionPolicy Bypass -Command \"${local.bootstrap_command}\""
+    commandToExecute = "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${textencodebase64(local.bootstrap_script, "UTF-16LE")}"
   })
 }
 

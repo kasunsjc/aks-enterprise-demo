@@ -69,6 +69,12 @@ resource "azurerm_kubernetes_cluster" "this" {
     only_critical_addons_enabled = true
     os_disk_size_gb              = 64
     type                         = "VirtualMachineScaleSets"
+
+    upgrade_settings {
+      max_surge                     = "10%"
+      drain_timeout_in_minutes      = 0
+      node_soak_duration_in_minutes = 0
+    }
   }
 
   identity {
@@ -78,9 +84,10 @@ resource "azurerm_kubernetes_cluster" "this" {
 
   network_profile {
     network_plugin      = "azure"
-    network_data_plane  = "cilium"
     network_plugin_mode = "overlay"
     network_policy      = "cilium"
+    network_data_plane  = "cilium"
+    pod_cidr            = "10.244.0.0/16"
     service_cidr        = "172.16.0.0/16"
     dns_service_ip      = "172.16.0.10"
     outbound_type       = "userDefinedRouting"

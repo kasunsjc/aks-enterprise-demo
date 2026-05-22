@@ -174,8 +174,6 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 
 ## Connecting to the cluster
 
-> Note: the current staged root wiring (`platform/core/addons`) does not include jumpbox module deployment. The steps below apply if you explicitly enable jumpbox modules.
-
 ### Linux jumpbox (SSH via Bastion)
 
 1. In the Azure portal, open the Linux jumpbox VM → **Connect → Bastion**.
@@ -186,16 +184,19 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
    az login
    az aks get-credentials -g rg-paks-<env>-spoke -n aks-paks-<env>
    kubectl get nodes
+   k9s
    ```
 
    The `kubectl` call resolves the private API FQDN to a **private IP** via the
    Private DNS Zone linked to the spoke VNet.
 
+   ![k9s console](images/k9s-console.png)
+
 ### Windows jumpbox (RDP via Bastion)
 
 1. In the Azure portal, open the Windows jumpbox VM → **Connect → Bastion**.
 2. Log in with `windows_jumpbox_admin_username` / `windows_jumpbox_admin_password`.
-3. On first boot, the Custom Script Extension installs **Azure CLI**, **kubectl**, **Helm**, and **git** via Chocolatey. Once complete, open a new PowerShell window and run:
+3. On first boot, the Custom Script Extension installs jumpbox tools via Chocolatey. Once complete, open a new PowerShell window and run:
 
    ```powershell
    az login
@@ -209,6 +210,13 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
    ```bash
    az acr build --registry <acr-name-from-outputs> --image <image>:<tag> .
    ```
+
+### Jumpbox tooling installed by bootstrap
+
+| Jumpbox | Installed tools |
+|---|---|
+| Linux jumpbox | Azure CLI, kubectl, kubelogin, Helm, Docker Engine/CLI, k9s |
+| Windows jumpbox | Azure CLI, kubectl, kubelogin, Helm, git, Docker CLI, Headlamp |
 
 ## Why this design?
 
