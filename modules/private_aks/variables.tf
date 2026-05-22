@@ -44,6 +44,11 @@ variable "hub_resource_group_name" {
   type        = string
 }
 
+variable "private_dns_zone_id" {
+  description = "Resource ID of the private DNS zone for AKS API server (from private_dns_zones module)."
+  type        = string
+}
+
 variable "tenant_id" {
   description = "Azure AD tenant ID."
   type        = string
@@ -76,6 +81,12 @@ variable "log_retention_days" {
   description = "Log Analytics workspace retention in days."
   type        = number
   default     = 30
+}
+
+variable "node_resource_group_name" {
+  description = "Name for the AKS-managed node resource group (MC_...). Defaults to 'rg-<name_suffix>-aks-nodes' if not set."
+  type        = string
+  default     = ""
 }
 
 variable "tags" {

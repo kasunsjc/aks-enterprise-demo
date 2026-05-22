@@ -11,7 +11,7 @@ resource "azurerm_public_ip" "firewall" {
   tags                = var.tags
 }
 
-resource "azurerm_firewall_policy" "hub" {
+resource "azurerm_firewall_policy" "this" {
   name                = "afwp-${var.name_suffix}"
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -19,13 +19,13 @@ resource "azurerm_firewall_policy" "hub" {
   tags                = var.tags
 }
 
-resource "azurerm_firewall" "hub" {
+resource "azurerm_firewall" "this" {
   name                = "afw-${var.name_suffix}"
   resource_group_name = var.resource_group_name
   location            = var.location
   sku_name            = "AZFW_VNet"
   sku_tier            = "Standard"
-  firewall_policy_id  = azurerm_firewall_policy.hub.id
+  firewall_policy_id  = azurerm_firewall_policy.this.id
   tags                = var.tags
 
   ip_configuration {
@@ -37,7 +37,7 @@ resource "azurerm_firewall" "hub" {
 
 resource "azurerm_firewall_policy_rule_collection_group" "aks" {
   name               = "rcg-aks"
-  firewall_policy_id = azurerm_firewall_policy.hub.id
+  firewall_policy_id = azurerm_firewall_policy.this.id
   priority           = 200
 
   # --- Network rules (IP / service-tag based) ---
@@ -89,14 +89,17 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
     priority = 500
     action   = "Allow"
 
-    # Microsoft-published FQDN tag covers the full official AKS required list.
     rule {
       name                  = "aks-fqdn-tag"
       source_addresses      = [var.aks_node_cidr]
       destination_fqdn_tags = ["AzureKubernetesService"]
+
+      protocols {
+        type = "Https"
+        port = 443
+      }
     }
 
-    # Extra FQDNs: image pulls, OS packages, monitoring.
     rule {
       name             = "container-images-and-os-updates"
       source_addresses = [var.aks_node_cidr]
@@ -119,34 +122,5 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
         "*.monitoring.azure.com",
       ]
     }
-  }
-}
-
-# ============================================================================
-# Azure Bastion — browser-based SSH/RDP with no VM public IPs required.
-# Standard SKU enables tunneling so `az network bastion tunnel` works too.
-# ============================================================================
-resource "azurerm_public_ip" "bastion" {
-  name                = "pip-${var.name_suffix}-bastion"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  allocation_method   = "Static"
-  sku                 = "Standard"
-  tags                = var.tags
-}
-
-resource "azurerm_bastion_host" "hub" {
-  name                = "bas-${var.name_suffix}"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  sku                 = "Standard"
-  tunneling_enabled   = true
-  copy_paste_enabled  = true
-  tags                = var.tags
-
-  ip_configuration {
-    name                 = "ipcfg"
-    subnet_id            = var.bastion_subnet_id
-    public_ip_address_id = azurerm_public_ip.bastion.id
   }
 }

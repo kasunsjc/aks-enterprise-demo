@@ -1,0 +1,95 @@
+locals {
+  name_suffix          = "paks-${var.environment}"
+  effective_operator_id = var.operator_object_id != "" ? var.operator_object_id : data.azurerm_client_config.current.object_id
+  tags = merge(var.tags, {
+    environment = var.environment
+  })
+}
+
+# ---------------------------------------------------------------------------
+# Resource groups — one for shared hub resources, one for spoke workloads.
+# ---------------------------------------------------------------------------
+resource "azurerm_resource_group" "hub" {
+  name     = "rg-${local.name_suffix}-hub"
+  location = var.location
+  tags     = local.tags
+}
+
+resource "azurerm_resource_group" "spoke" {
+  name     = "rg-${local.name_suffix}-spoke"
+  location = var.location
+  tags     = local.tags
+}
+
+# ---------------------------------------------------------------------------
+# Module: hub_network (minimal — VNet only, no Firewall/Bastion subnets yet)
+# ---------------------------------------------------------------------------
+module "hub_network" {
+  source = "./modules/hub_network"
+
+  name_suffix          = local.name_suffix
+  resource_group_name  = azurerm_resource_group.hub.name
+  location             = azurerm_resource_group.hub.location
+  address_space        = var.hub_address_space
+  subnet_cidr_firewall = var.hub_subnets.firewall
+  subnet_cidr_bastion  = var.hub_subnets.bastion
+  subnet_cidr_shared   = var.hub_subnets.shared
+  tags                 = local.tags
+}
+
+# ---------------------------------------------------------------------------
+# Module: spoke_network (minimal — AKS subnet only)
+# Skip VNet peering + UDR + firewall references for now.
+# ---------------------------------------------------------------------------
+module "spoke_network" {
+  source = "./modules/spoke_network"
+
+  name_suffix             = local.name_suffix
+  resource_group_name     = azurerm_resource_group.spoke.name
+  location                = azurerm_resource_group.spoke.location
+  address_space           = var.spoke_address_space
+  subnet_cidr_aks         = var.spoke_subnets.aks
+  subnet_cidr_pe          = var.spoke_subnets.pe
+  subnet_cidr_jumpbox     = var.spoke_subnets.jumpbox
+  hub_vnet_id             = module.hub_network.vnet_id
+  hub_vnet_name           = module.hub_network.vnet_name
+  hub_resource_group_name = azurerm_resource_group.hub.name
+  firewall_private_ip     = "" # TODO: enable when hub_security is restored
+  tags                    = local.tags
+}
+
+# ---------------------------------------------------------------------------
+# Module: private_aks (minimal — core cluster only)
+# ---------------------------------------------------------------------------
+module "private_aks" {
+  source = "./modules/private_aks"
+
+  name_suffix             = local.name_suffix
+  unique_identifier       = var.unique_identifier
+  resource_group_name     = azurerm_resource_group.spoke.name
+  location                = azurerm_resource_group.spoke.location
+  kubernetes_version      = var.kubernetes_version
+  aks_subnet_id           = module.spoke_network.aks_subnet_id
+  spoke_vnet_id           = module.spoke_network.vnet_id
+  hub_vnet_id             = module.hub_network.vnet_id
+  hub_resource_group_name = azurerm_resource_group.hub.name
+  tenant_id               = data.azurerm_client_config.current.tenant_id
+  operator_object_id      = local.effective_operator_id
+  node_resource_group_name = var.node_resource_group_name
+  system_node_vm_size     = var.system_node_vm_size
+  system_node_min_count   = var.system_node_min_count
+  system_node_max_count   = var.system_node_max_count
+  log_retention_days      = var.log_retention_days
+  tags                    = local.tags
+}
+
+# ============================================================================
+# TODO: Add these modules back gradually after AKS is stable
+# ============================================================================
+# - hub_security (Firewall + Bastion)
+# - bastion (separate module)
+# - jumpbox (Linux VM)
+# - windows_jumpbox (Windows VM)
+# - aks_node_pools (additional node pools)
+# - private_acr (container registry)
+# - monitoring (Prometheus + Grafana)

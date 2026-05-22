@@ -21,7 +21,7 @@ variable "environment" {
 variable "location" {
   description = "Azure region for all resources."
   type        = string
-  default     = "eastus"
+  default     = "northeurope"
 }
 
 variable "kubernetes_version" {
@@ -160,7 +160,7 @@ variable "log_retention_days" {
 variable "grafana_major_version" {
   description = "Major version of Azure Managed Grafana to deploy (9 or 10)."
   type        = number
-  default     = 10
+  default     = 12
 }
 
 variable "alert_action_group_ids" {
@@ -182,8 +182,15 @@ variable "jumpbox_admin_password" {
 }
 
 variable "operator_object_id" {
-  description = "AAD object ID for the operator/admin user (gets cluster admin + ACR Push)."
+  description = "AAD object ID for the operator/admin user (gets cluster admin + ACR Push). Defaults to the currently authenticated principal if left empty."
   type        = string
+  default     = ""
+}
+
+variable "node_resource_group_name" {
+  description = "Custom name for the AKS-managed node resource group. Defaults to 'rg-<name_suffix>-aks-nodes' if left empty."
+  type        = string
+  default     = ""
 }
 
 variable "tags" {

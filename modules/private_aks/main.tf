@@ -1,29 +1,4 @@
 # ============================================================================
-# Private DNS zone for AKS API server.
-# Zone name MUST be exactly: privatelink.<region>.azmk8s.io
-# Placed in the hub RG so it can be shared with additional spokes later.
-# ============================================================================
-resource "azurerm_private_dns_zone" "aks" {
-  name                = "privatelink.${var.location}.azmk8s.io"
-  resource_group_name = var.hub_resource_group_name
-  tags                = var.tags
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "aks_spoke" {
-  name                  = "pdz-link-aks-spoke"
-  resource_group_name   = var.hub_resource_group_name
-  private_dns_zone_name = azurerm_private_dns_zone.aks.name
-  virtual_network_id    = var.spoke_vnet_id
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "aks_hub" {
-  name                  = "pdz-link-aks-hub"
-  resource_group_name   = var.hub_resource_group_name
-  private_dns_zone_name = azurerm_private_dns_zone.aks.name
-  virtual_network_id    = var.hub_vnet_id
-}
-
-# ============================================================================
 # User-assigned managed identity for the AKS control plane.
 # Required when supplying a BYO private DNS zone (system-managed DNS zone
 # is not used so AKS needs its own identity to create the A record).
@@ -38,7 +13,7 @@ resource "azurerm_user_assigned_identity" "aks" {
 # AKS needs Private DNS Zone Contributor to create the A record for the API
 # server FQDN in the BYO zone at cluster-creation time.
 resource "azurerm_role_assignment" "aks_dns_contributor" {
-  scope                = azurerm_private_dns_zone.aks.id
+  scope                = var.private_dns_zone_id
   role_definition_name = "Private DNS Zone Contributor"
   principal_id         = azurerm_user_assigned_identity.aks.principal_id
 }
@@ -72,16 +47,18 @@ resource "azurerm_kubernetes_cluster" "this" {
   location            = var.location
   kubernetes_version  = var.kubernetes_version
   dns_prefix          = "aks-${var.name_suffix}"
+  node_resource_group = var.node_resource_group_name != "" ? var.node_resource_group_name : "rg-${var.name_suffix}-aks-nodes"
   tags                = var.tags
 
   private_cluster_enabled             = true
-  private_dns_zone_id                 = azurerm_private_dns_zone.aks.id
+  private_dns_zone_id                 = var.private_dns_zone_id
   private_cluster_public_fqdn_enabled = false
 
   role_based_access_control_enabled = true
-  oidc_issuer_enabled               = true
-  workload_identity_enabled         = true
-  azure_policy_enabled              = true
+  # Temporarily disabled for faster deployment — re-enable after cluster is stable
+  # oidc_issuer_enabled               = true
+  # workload_identity_enabled         = true
+  # azure_policy_enabled              = true
 
   default_node_pool {
     name                         = "system"
@@ -101,12 +78,13 @@ resource "azurerm_kubernetes_cluster" "this" {
   }
 
   network_profile {
-    network_plugin      = "azure"
-    network_plugin_mode = "overlay"
-    network_policy      = "azure"
-    service_cidr        = "172.16.0.0/16"
-    dns_service_ip      = "172.16.0.10"
-    outbound_type       = "userDefinedRouting"
+    network_plugin = "azure"
+    # Temporarily disabled for faster deployment — re-enable after cluster is stable
+    # network_plugin_mode = "overlay"
+    # network_policy      = "azure"
+    service_cidr   = "172.16.0.0/16"
+    dns_service_ip = "172.16.0.10"
+    outbound_type  = "userDefinedRouting"
   }
 
   azure_active_directory_role_based_access_control {
@@ -114,10 +92,14 @@ resource "azurerm_kubernetes_cluster" "this" {
     tenant_id          = var.tenant_id
   }
 
-  oms_agent {
-    log_analytics_workspace_id      = azurerm_log_analytics_workspace.this.id
-    msi_auth_for_monitoring_enabled = true
-  }
+  # Enables the AKS Azure Monitor managed service for Prometheus addon (AMA metrics).
+  monitor_metrics {}
+
+  # Temporarily disabled for faster deployment — re-enable after cluster is stable
+  # oms_agent {
+  #   log_analytics_workspace_id      = azurerm_log_analytics_workspace.this.id
+  #   msi_auth_for_monitoring_enabled = true
+  # }
 
   # RBAC and DNS role assignments must exist before the cluster is created.
   depends_on = [

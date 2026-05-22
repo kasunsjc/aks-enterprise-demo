@@ -5,8 +5,8 @@
 
 environment        = "dev"
 unique_identifier  = "contso" # ≤6 chars; org/subscription identifier. Full ACR name: acrpaksdev<id>, LAW: log-paks-dev-<id>
-location           = "eastus"
-kubernetes_version = "1.30"
+location           = "northeurope"
+kubernetes_version = "1.34"
 
 # Network — isolated address space for dev
 hub_address_space   = ["10.0.0.0/16"]
@@ -25,14 +25,14 @@ spoke_subnets = {
 }
 
 # AKS — system pool (stays in cluster resource)
-system_node_vm_size   = "Standard_D2s_v5"
+system_node_vm_size   = "Standard_D2s_v3"
 system_node_min_count = 1
 system_node_max_count = 2
 
 # AKS — additional user pools (managed by aks_node_pools module)
 node_pools = {
   user = {
-    vm_size   = "Standard_D2s_v5"
+    vm_size   = "Standard_D2s_v3"
     min_count = 1
     max_count = 3
   }
@@ -40,7 +40,7 @@ node_pools = {
 
 # Observability
 log_retention_days     = 30
-grafana_major_version  = 10
+grafana_major_version  = 12
 alert_action_group_ids = []
 
 # Jumpbox
@@ -50,7 +50,7 @@ jumpbox_admin_username = "azureadmin"
 # operator_object_id     — set via TF_VAR_operator_object_id or -var flag
 
 # Windows Jumpbox
-windows_jumpbox_vm_size        = "Standard_D2s_v5"
+windows_jumpbox_vm_size        = "Standard_D2s_v3"
 windows_jumpbox_admin_username = "azureadmin"
 # windows_jumpbox_admin_password — set via TF_VAR_windows_jumpbox_admin_password or -var flag
 

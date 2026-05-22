@@ -1,15 +1,15 @@
 variable "name_suffix" {
-  description = "Suffix used in every resource name (e.g. 'paks-dev')."
+  description = "Suffix used in every resource name."
   type        = string
 }
 
 variable "unique_identifier" {
-  description = "Short identifier appended to globally-unique resource names (ACR). Should match the root module's unique_identifier."
+  description = "Short identifier for globally-unique names."
   type        = string
 }
 
 variable "resource_group_name" {
-  description = "Resource group that holds ACR and its private endpoint."
+  description = "Resource group for ACR."
   type        = string
 }
 
@@ -19,43 +19,50 @@ variable "location" {
 }
 
 variable "pe_subnet_id" {
-  description = "Resource ID of the private-endpoint subnet."
+  description = "Private endpoint subnet ID."
   type        = string
 }
 
 variable "spoke_vnet_id" {
-  description = "Resource ID of the spoke VNet (for DNS zone link)."
+  description = "Spoke VNet ID."
   type        = string
 }
 
 variable "hub_vnet_id" {
-  description = "Resource ID of the hub VNet (for DNS zone link)."
+  description = "Hub VNet ID."
   type        = string
 }
 
 variable "hub_resource_group_name" {
-  description = "Resource group in which the ACR private DNS zone is created."
+  description = "Hub resource group name."
+  type        = string
+}
+
+variable "acr_dns_zone_id" {
+  description = "ACR private DNS zone ID (from private_dns_zones module)."
   type        = string
 }
 
 variable "aks_kubelet_object_id" {
-  description = "Object ID of the AKS kubelet managed identity (granted AcrPull)."
+  description = "Object ID of AKS kubelet identity (granted AcrPull)."
   type        = string
 }
 
 variable "operator_object_id" {
-  description = "Object ID of the operator (granted AcrPush)."
+  description = "AAD object ID of operator (granted AcrPush)."
   type        = string
 }
 
 variable "jumpbox_identity_object_id" {
-  description = "Object ID of the Linux jumpbox system-assigned identity (granted AcrPull)."
+  description = "Object ID of Linux jumpbox system-assigned identity."
   type        = string
+  default     = ""
 }
 
 variable "windows_jumpbox_identity_object_id" {
-  description = "Object ID of the Windows jumpbox system-assigned identity (granted AcrPull)."
+  description = "Object ID of Windows jumpbox system-assigned identity."
   type        = string
+  default     = ""
 }
 
 variable "tags" {

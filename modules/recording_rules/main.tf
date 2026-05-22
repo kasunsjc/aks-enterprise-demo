@@ -88,7 +88,7 @@ resource "azurerm_monitor_alert_prometheus_rule_group" "container_rules" {
         )
       )
     PROMQL
-    labels = { source = "aks-managed-prometheus" }
+    labels     = { source = "aks-managed-prometheus" }
   }
 
   rule {

@@ -35,7 +35,7 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
                  └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**What is deployed:**
+**What the current Terraform implementation deploys:**
 
 | Component | Notes |
 |---|---|
@@ -51,43 +51,47 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
 | User-assigned managed identity for AKS | Pre-granted Private DNS Zone Contributor + Network Contributor |
 | **Premium ACR** with private endpoint | `public_network_access_enabled = false` — image pulls stay on-net |
 | `AcrPull` on ACR for AKS kubelet | No registry secrets; MSI-based auth |
-| Linux jumpbox VM | No public IP; only reachable via Bastion SSH |
-| Windows Server 2022 jumpbox VM | No public IP; reachable via Bastion RDP; kubectl, Helm, Azure CLI, and git installed automatically |
+| AKS Azure Monitor metrics add-on | `monitor_metrics {}` enabled on AKS for AMA/managed Prometheus pipeline |
+| Azure Monitor workspace + DCR association | Managed Prometheus workspace wired to AKS via DCR association |
+| Managed Grafana (private) | Integrated with Monitor workspace via private endpoint and private DNS |
+| Prometheus recording/alerting rules | Rule groups created in Azure Monitor for node/workload health |
 
 ## Module layout
 
 ```
 .
-├── main.tf            # Resource groups + module calls
+├── main.tf            # Resource groups + 3-stage orchestration modules
 ├── variables.tf       # All input variables (with defaults)
 ├── outputs.tf         # Key resource IDs and connection info
 ├── providers.tf       # azurerm ~> 4.0, terraform >= 1.5.0
 └── modules/
-    ├── hub_network/      # Hub VNet + AzureFirewallSubnet, AzureBastionSubnet, snet-shared
-    ├── hub_security/     # Azure Firewall + Firewall Policy + AKS egress rules + Azure Bastion
-    ├── spoke_network/    # Spoke VNet + subnets + VNet peerings + UDR route table
-    ├── private_aks/      # BYO Private DNS zone, UAMI, Log Analytics, AKS cluster + node pools
-    ├── private_acr/      # Premium ACR + private endpoint + ACR DNS zone + role assignments
-    ├── jumpbox/          # Linux VM (no public IP), cloud-init (az + kubectl), role assignments
-    └── windows_jumpbox/  # Windows Server 2022 VM (no public IP), Custom Script Extension
-                          # (installs kubectl, Helm, Azure CLI, git via Chocolatey), role assignments
+    ├── platform_stack/   # Stage 1: network, firewall, bastion, private DNS zones
+    ├── core_stack/       # Stage 2: private AKS cluster
+    ├── addons_stack/     # Stage 3: ACR, Prometheus/Grafana, rule groups, user node pools
+    ├── hub_network/      # Building block modules used by platform_stack
+    ├── firewall/
+    ├── bastion/
+    ├── spoke_network/
+    ├── private_dns_zones/
+    ├── private_aks/      # Building block module used by core_stack
+    ├── private_acr/      # Building block modules used by addons_stack
+    ├── managed_prometheus/
+    ├── grafana/
+    ├── recording_rules/
+    └── alerting_rules/
 ```
 
 Each module has `main.tf / variables.tf / outputs.tf / versions.tf` and can be consumed independently.
 
 ### Dependency chain
 
-Terraform resolves all ordering through module output references — no manual `depends_on` at the root level:
+Terraform uses staged orchestration plus module output references:
 
 ```
-hub_network  ──▶  hub_security   (firewall / bastion subnet IDs)
-hub_network  ──▶  spoke_network  (hub VNet ID + name for peering)
-hub_security ──▶  spoke_network  (firewall_private_ip → UDR next hop)
-spoke_network ──▶ private_aks    (aks_subnet_id, spoke_vnet_id)
-spoke_network ──▶ private_acr    (pe_subnet_id, spoke_vnet_id)
-private_aks ──▶ jumpbox          (cluster_id → Cluster User role)
-jumpbox + private_aks ──▶ private_acr  (MSI object IDs → AcrPull)
+platform_stack  ──▶  core_stack   ──▶  addons_stack
 ```
+
+Inside each stage, ordering is primarily output-driven (with targeted `depends_on` only where Azure ordering is strict).
 
 ## Prerequisites
 
@@ -117,7 +121,7 @@ or identity-specific:
 |---|---|
 | `jumpbox_admin_password` | `export TF_VAR_jumpbox_admin_password='...'` |
 | `windows_jumpbox_admin_password` | `export TF_VAR_windows_jumpbox_admin_password='...'` |
-| `operator_object_id` | `export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)` |
+| `operator_object_id` | Optional. Defaults to the currently authenticated principal (`az login` identity). Override with `export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)` |
 
 ## Usage
 
@@ -129,7 +133,8 @@ terraform init
 # Set secrets once as env vars (never in var files)
 export TF_VAR_jumpbox_admin_password='<a-strong-password>'
 export TF_VAR_windows_jumpbox_admin_password='<a-strong-password>'
-export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)
+# operator_object_id is optional — omit to default to the logged-in principal
+# export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)
 
 # Deploy dev
 terraform apply -var-file=envs/dev.tfvars
@@ -164,10 +169,12 @@ backend "azurerm" {
 Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone/prod.tfstate"`
 
 > ⚠️ **Cost warning.** This configuration provisions expensive Azure resources:
-> Azure Firewall (~$900/mo), Bastion (~$140/mo), AKS control plane, Premium ACR, VMs, and public IPs.
+> Azure Firewall (~$900/mo), Bastion (~$140/mo), AKS control plane, Premium ACR, and public IPs.
 > Always run `terraform destroy` when done experimenting.
 
 ## Connecting to the cluster
+
+> Note: the current staged root wiring (`platform/core/addons`) does not include jumpbox module deployment. The steps below apply if you explicitly enable jumpbox modules.
 
 ### Linux jumpbox (SSH via Bastion)
 
@@ -210,7 +217,7 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 - **User-assigned MI for AKS** is mandatory with a BYO DNS zone — AKS needs `Private DNS Zone Contributor` on the zone *before* the cluster is created.
 - **Azure Firewall + UDR** centralises all egress through a single auditable point. AKS has a published list of required FQDNs and ports; this repo encodes them in a Firewall Policy.
 - **Private ACR** prevents image exfiltration and external pull-through. The kubelet authenticates via MSI — no registry secrets in the cluster.
-- **Bastion + jumpbox** is the standard "operators only" path. No public IPs on VMs, no open NSG ports. Both a Linux jumpbox (SSH) and a Windows jumpbox (RDP) are provided; choose based on team preference.
+- **Staged orchestration (`platform → core → addons`)** gives predictable rollout sequencing for enterprise environments while keeping module boundaries reusable.
 
 ## Egress rules
 
@@ -236,9 +243,8 @@ AKS [requires specific egress](https://learn.microsoft.com/azure/aks/limit-egres
 
 ## Recommended next steps
 
-- Add **Azure Policy add-on** (`azure_policy_enabled = true` already set) and **Defender for Containers**.
+- Enable **Azure Policy add-on**, OIDC issuer, and Workload Identity in `modules/private_aks/main.tf` after baseline stability.
 - Replace the jumpbox with **AKS Run Command** (`az aks command invoke`) for an even tighter perimeter.
 - Add **Application Gateway (private IP)** or **NGINX Ingress** for inbound traffic.
 - Add a second spoke for data services (SQL Managed Instance, Cosmos DB) and peer it through the hub.
 - Enable **Workload Identity** on application pods to access Key Vault without secrets.
-
