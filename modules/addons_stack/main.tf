@@ -1,18 +1,48 @@
+module "jumpbox" {
+  source = "../jumpbox"
+
+  name_suffix         = var.name_suffix
+  resource_group_name = var.spoke_resource_group_name
+  location            = var.location
+  jumpbox_subnet_id   = var.jumpbox_subnet_id
+  vm_size             = var.jumpbox_vm_size
+  admin_username      = var.jumpbox_admin_username
+  admin_password      = var.jumpbox_admin_password
+  aks_cluster_id      = var.aks_cluster_id
+  tags                = var.tags
+}
+
+module "windows_jumpbox" {
+  source = "../windows_jumpbox"
+
+  name_suffix         = var.name_suffix
+  resource_group_name = var.spoke_resource_group_name
+  location            = var.location
+  jumpbox_subnet_id   = var.jumpbox_subnet_id
+  vm_size             = var.windows_jumpbox_vm_size
+  admin_username      = var.windows_jumpbox_admin_username
+  admin_password      = var.windows_jumpbox_admin_password
+  aks_cluster_id      = var.aks_cluster_id
+  tags                = var.tags
+}
+
 module "private_acr" {
   source = "../private_acr"
 
-  name_suffix             = var.name_suffix
-  unique_identifier       = var.unique_identifier
-  resource_group_name     = var.spoke_resource_group_name
-  location                = var.location
-  pe_subnet_id            = var.pe_subnet_id
-  spoke_vnet_id           = var.spoke_vnet_id
-  hub_vnet_id             = var.hub_vnet_id
-  hub_resource_group_name = var.hub_resource_group_name
-  acr_dns_zone_id         = var.acr_dns_zone_id
-  aks_kubelet_object_id   = var.aks_kubelet_object_id
-  operator_object_id      = var.operator_object_id
-  tags                    = var.tags
+  name_suffix                        = var.name_suffix
+  unique_identifier                  = var.unique_identifier
+  resource_group_name                = var.spoke_resource_group_name
+  location                           = var.location
+  pe_subnet_id                       = var.pe_subnet_id
+  spoke_vnet_id                      = var.spoke_vnet_id
+  hub_vnet_id                        = var.hub_vnet_id
+  hub_resource_group_name            = var.hub_resource_group_name
+  acr_dns_zone_id                    = var.acr_dns_zone_id
+  aks_kubelet_object_id              = var.aks_kubelet_object_id
+  operator_object_id                 = var.operator_object_id
+  jumpbox_identity_object_id         = module.jumpbox.identity_object_id
+  windows_jumpbox_identity_object_id = module.windows_jumpbox.identity_object_id
+  tags                               = var.tags
 }
 
 module "managed_prometheus" {

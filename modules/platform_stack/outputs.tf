@@ -14,6 +14,10 @@ output "pe_subnet_id" {
   value = module.spoke_network.pe_subnet_id
 }
 
+output "jumpbox_subnet_id" {
+  value = module.spoke_network.jumpbox_subnet_id
+}
+
 output "aks_dns_zone_id" {
   value = module.private_dns_zones.aks_dns_zone_id
 }

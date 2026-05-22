@@ -22,6 +22,10 @@ variable "pe_subnet_id" {
   type = string
 }
 
+variable "jumpbox_subnet_id" {
+  type = string
+}
+
 variable "spoke_vnet_id" {
   type = string
 }
@@ -56,6 +60,32 @@ variable "aks_kubelet_object_id" {
 
 variable "operator_object_id" {
   type = string
+}
+
+variable "jumpbox_vm_size" {
+  type = string
+}
+
+variable "jumpbox_admin_username" {
+  type = string
+}
+
+variable "jumpbox_admin_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "windows_jumpbox_vm_size" {
+  type = string
+}
+
+variable "windows_jumpbox_admin_username" {
+  type = string
+}
+
+variable "windows_jumpbox_admin_password" {
+  type      = string
+  sensitive = true
 }
 
 variable "grafana_major_version" {

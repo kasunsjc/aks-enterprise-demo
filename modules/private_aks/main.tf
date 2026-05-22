@@ -55,10 +55,9 @@ resource "azurerm_kubernetes_cluster" "this" {
   private_cluster_public_fqdn_enabled = false
 
   role_based_access_control_enabled = true
-  # Temporarily disabled for faster deployment — re-enable after cluster is stable
-  # oidc_issuer_enabled               = true
-  # workload_identity_enabled         = true
-  # azure_policy_enabled              = true
+  oidc_issuer_enabled               = true
+  workload_identity_enabled         = true
+  azure_policy_enabled              = true
 
   default_node_pool {
     name                         = "system"
@@ -78,13 +77,13 @@ resource "azurerm_kubernetes_cluster" "this" {
   }
 
   network_profile {
-    network_plugin = "azure"
-    # Temporarily disabled for faster deployment — re-enable after cluster is stable
-    # network_plugin_mode = "overlay"
-    # network_policy      = "azure"
-    service_cidr   = "172.16.0.0/16"
-    dns_service_ip = "172.16.0.10"
-    outbound_type  = "userDefinedRouting"
+    network_plugin      = "azure"
+    network_data_plane  = "cilium"
+    network_plugin_mode = "overlay"
+    network_policy      = "cilium"
+    service_cidr        = "172.16.0.0/16"
+    dns_service_ip      = "172.16.0.10"
+    outbound_type       = "userDefinedRouting"
   }
 
   azure_active_directory_role_based_access_control {
@@ -94,12 +93,10 @@ resource "azurerm_kubernetes_cluster" "this" {
 
   # Enables the AKS Azure Monitor managed service for Prometheus addon (AMA metrics).
   monitor_metrics {}
-
-  # Temporarily disabled for faster deployment — re-enable after cluster is stable
-  # oms_agent {
-  #   log_analytics_workspace_id      = azurerm_log_analytics_workspace.this.id
-  #   msi_auth_for_monitoring_enabled = true
-  # }
+  oms_agent {
+    log_analytics_workspace_id      = azurerm_log_analytics_workspace.this.id
+    msi_auth_for_monitoring_enabled = true
+  }
 
   # RBAC and DNS role assignments must exist before the cluster is created.
   depends_on = [
