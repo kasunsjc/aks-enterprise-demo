@@ -48,3 +48,19 @@ terraform validate
 - **Operator identity fallback is automatic**: if `operator_object_id` is empty, code uses the currently authenticated Azure principal (`data.azurerm_client_config.current.object_id`).
 - **Tagging pattern**: root merges `var.tags` with `{ environment = var.environment }` and passes merged tags to all modules.
 - **Dependency style**: prefer implicit dependencies through input/output wiring; add explicit `depends_on` only for known Azure ordering requirements.
+
+## README maintenance
+
+After **every change**, review `README.md` and update it if any of the following are affected:
+
+- **Architecture or module topology** — new modules, removed modules, changed wiring between stacks
+- **Installed tools** — any addition or removal of tools on the Linux or Windows jumpbox (keep the tooling table current)
+- **Variables or environment files** — new required variables, changed defaults, or new `envs/*.tfvars` keys
+- **Prerequisites or deployment steps** — changes to the order of `terraform apply` stages, new secrets required, new Azure RBAC prerequisites
+- **Observability / diagnostics** — new Log Analytics workspaces, diagnostic settings, or monitoring integrations
+- **Infrastructure components** — new Azure resources (ACR, Grafana, Prometheus, Firewall, Bastion, etc.) added or removed
+
+When updating the README:
+- Keep descriptions concise and consistent with the existing tone
+- Update tables in-place rather than appending duplicate sections
+- If a screenshot is outdated, note it with a `<!-- TODO: update screenshot -->` comment rather than leaving stale images silently
