@@ -13,3 +13,7 @@ output "aks_private_fqdn" {
 output "kubelet_identity_object_id" {
   value = module.private_aks.kubelet_identity_object_id
 }
+
+output "log_analytics_workspace_id" {
+  value = module.private_aks.log_analytics_workspace_id
+}

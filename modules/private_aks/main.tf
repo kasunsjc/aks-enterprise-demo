@@ -118,3 +118,26 @@ resource "azurerm_role_assignment" "operator_cluster_admin" {
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
   principal_id         = var.operator_object_id
 }
+
+# ============================================================================
+# Diagnostic settings — ship control-plane logs + metrics to Log Analytics.
+# ============================================================================
+resource "azurerm_monitor_diagnostic_setting" "aks" {
+  name                       = "diag-${var.name_suffix}-aks"
+  target_resource_id         = azurerm_kubernetes_cluster.this.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.this.id
+
+  enabled_log { category = "kube-apiserver" }
+  enabled_log { category = "kube-audit" }
+  enabled_log { category = "kube-audit-admin" }
+  enabled_log { category = "kube-controller-manager" }
+  enabled_log { category = "kube-scheduler" }
+  enabled_log { category = "cluster-autoscaler" }
+  enabled_log { category = "cloud-controller-manager" }
+  enabled_log { category = "guard" }
+  enabled_log { category = "csi-azuredisk-controller" }
+  enabled_log { category = "csi-azurefile-controller" }
+  enabled_log { category = "csi-snapshot-controller" }
+
+  enabled_metric { category = "AllMetrics" }
+}

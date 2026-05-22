@@ -28,6 +28,11 @@ variable "location_shortcode" {
   type        = string
 }
 
+variable "log_analytics_workspace_id" {
+  description = "Resource ID of the Log Analytics workspace to stream firewall diagnostic logs."
+  type        = string
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)

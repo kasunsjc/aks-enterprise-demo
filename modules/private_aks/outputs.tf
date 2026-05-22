@@ -17,3 +17,8 @@ output "kubelet_identity_object_id" {
   description = "Object ID of the AKS kubelet managed identity. Used for AcrPull assignment."
   value       = azurerm_kubernetes_cluster.this.kubelet_identity[0].object_id
 }
+
+output "log_analytics_workspace_id" {
+  description = "Resource ID of the Log Analytics workspace used by AKS Container Insights."
+  value       = azurerm_log_analytics_workspace.this.id
+}

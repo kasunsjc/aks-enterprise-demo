@@ -30,6 +30,7 @@ module "platform" {
   spoke_address_space       = var.spoke_address_space
   hub_subnets               = var.hub_subnets
   spoke_subnets             = var.spoke_subnets
+  log_retention_days        = var.log_retention_days
   tags                      = local.tags
 }
 
@@ -86,6 +87,7 @@ module "addons" {
   grafana_major_version          = var.grafana_major_version
   action_group_ids               = var.alert_action_group_ids
   node_pools                     = var.node_pools
+  log_analytics_workspace_id     = module.core.log_analytics_workspace_id
   tags                           = local.tags
 
   depends_on = [module.core]

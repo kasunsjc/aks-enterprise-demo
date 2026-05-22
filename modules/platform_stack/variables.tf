@@ -38,6 +38,11 @@ variable "spoke_subnets" {
   })
 }
 
+variable "log_retention_days" {
+  description = "Retention period (days) for the hub Log Analytics workspace."
+  type        = number
+  default     = 30
+}
 
 variable "tags" {
   type    = map(string)

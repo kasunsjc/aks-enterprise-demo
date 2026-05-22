@@ -60,3 +60,17 @@ resource "azurerm_role_assignment" "windows_jumpbox_acr_pull" {
   role_definition_name = "AcrPull"
   principal_id         = var.windows_jumpbox_identity_object_id
 }
+
+# ============================================================================
+# Diagnostic settings — ship ACR logs + metrics to Log Analytics.
+# ============================================================================
+resource "azurerm_monitor_diagnostic_setting" "acr" {
+  name                       = "diag-${var.name_suffix}-acr"
+  target_resource_id         = azurerm_container_registry.this.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  enabled_log { category = "ContainerRegistryRepositoryEvents" }
+  enabled_log { category = "ContainerRegistryLoginEvents" }
+
+  enabled_metric { category = "AllMetrics" }
+}

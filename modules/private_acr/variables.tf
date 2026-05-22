@@ -65,6 +65,11 @@ variable "windows_jumpbox_identity_object_id" {
   default     = ""
 }
 
+variable "log_analytics_workspace_id" {
+  description = "Resource ID of the Log Analytics workspace for ACR diagnostic logs."
+  type        = string
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)

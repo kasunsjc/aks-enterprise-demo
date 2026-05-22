@@ -42,32 +42,35 @@ module "private_acr" {
   operator_object_id                 = var.operator_object_id
   jumpbox_identity_object_id         = module.jumpbox.identity_object_id
   windows_jumpbox_identity_object_id = module.windows_jumpbox.identity_object_id
+  log_analytics_workspace_id         = var.log_analytics_workspace_id
   tags                               = var.tags
 }
 
 module "managed_prometheus" {
   source = "../managed_prometheus"
 
-  name_suffix            = var.name_suffix
-  resource_group_name    = var.spoke_resource_group_name
-  location               = var.location
-  pe_subnet_id           = var.pe_subnet_id
-  aks_cluster_id         = var.aks_cluster_id
-  prometheus_dns_zone_id = var.prometheus_dns_zone_id
-  tags                   = var.tags
+  name_suffix                = var.name_suffix
+  resource_group_name        = var.spoke_resource_group_name
+  location                   = var.location
+  pe_subnet_id               = var.pe_subnet_id
+  aks_cluster_id             = var.aks_cluster_id
+  prometheus_dns_zone_id     = var.prometheus_dns_zone_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+  tags                       = var.tags
 }
 
 module "grafana" {
   source = "../grafana"
 
-  name_suffix           = var.name_suffix
-  resource_group_name   = var.spoke_resource_group_name
-  location              = var.location
-  grafana_major_version = tostring(var.grafana_major_version)
-  pe_subnet_id          = var.pe_subnet_id
-  monitor_workspace_id  = module.managed_prometheus.monitor_workspace_id
-  grafana_dns_zone_id   = var.grafana_dns_zone_id
-  tags                  = var.tags
+  name_suffix                = var.name_suffix
+  resource_group_name        = var.spoke_resource_group_name
+  location                   = var.location
+  grafana_major_version      = tostring(var.grafana_major_version)
+  pe_subnet_id               = var.pe_subnet_id
+  monitor_workspace_id       = module.managed_prometheus.monitor_workspace_id
+  grafana_dns_zone_id        = var.grafana_dns_zone_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+  tags                       = var.tags
 }
 
 module "recording_rules" {

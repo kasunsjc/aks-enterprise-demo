@@ -110,6 +110,11 @@ variable "node_pools" {
   default = {}
 }
 
+variable "log_analytics_workspace_id" {
+  description = "Resource ID of the Log Analytics workspace (from core_stack) for addon diagnostics."
+  type        = string
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

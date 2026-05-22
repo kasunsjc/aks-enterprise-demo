@@ -28,6 +28,11 @@ variable "prometheus_dns_zone_id" {
   type        = string
 }
 
+variable "log_analytics_workspace_id" {
+  description = "Resource ID of the Log Analytics workspace for Azure Monitor Workspace diagnostic logs."
+  type        = string
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)

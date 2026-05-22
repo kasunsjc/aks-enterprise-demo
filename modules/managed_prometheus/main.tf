@@ -65,3 +65,14 @@ resource "azurerm_monitor_data_collection_rule_association" "aks" {
   data_collection_rule_id = azurerm_monitor_data_collection_rule.prometheus.id
   description             = "Associates Prometheus DCR with AKS."
 }
+
+# ============================================================================
+# Diagnostic settings — ship Azure Monitor Workspace metrics to Log Analytics.
+# ============================================================================
+resource "azurerm_monitor_diagnostic_setting" "monitor_workspace" {
+  name                       = "diag-${var.name_suffix}-amw"
+  target_resource_id         = azurerm_monitor_workspace.this.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  enabled_metric { category = "AllMetrics" }
+}

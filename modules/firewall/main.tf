@@ -124,3 +124,18 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
     }
   }
 }
+
+# ============================================================================
+# Diagnostic settings — ship firewall logs + metrics to Log Analytics.
+# ============================================================================
+resource "azurerm_monitor_diagnostic_setting" "firewall" {
+  name                       = "diag-${var.name_suffix}-firewall"
+  target_resource_id         = azurerm_firewall.this.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  enabled_log { category = "AzureFirewallApplicationRule" }
+  enabled_log { category = "AzureFirewallNetworkRule" }
+  enabled_log { category = "AzureFirewallDnsProxy" }
+
+  enabled_metric { category = "AllMetrics" }
+}

@@ -11,16 +11,27 @@ module "hub_network" {
   tags                 = var.tags
 }
 
+# Shared Log Analytics workspace for hub/platform diagnostics (firewall etc.)
+resource "azurerm_log_analytics_workspace" "hub" {
+  name                = "log-${var.name_suffix}-hub"
+  resource_group_name = var.hub_resource_group_name
+  location            = var.location
+  sku                 = "PerGB2018"
+  retention_in_days   = var.log_retention_days
+  tags                = var.tags
+}
+
 module "firewall" {
   source = "../firewall"
 
-  name_suffix         = var.name_suffix
-  resource_group_name = var.hub_resource_group_name
-  location            = var.location
-  firewall_subnet_id  = module.hub_network.firewall_subnet_id
-  aks_node_cidr       = var.spoke_subnets.aks
-  location_shortcode  = var.location
-  tags                = var.tags
+  name_suffix                = var.name_suffix
+  resource_group_name        = var.hub_resource_group_name
+  location                   = var.location
+  firewall_subnet_id         = module.hub_network.firewall_subnet_id
+  aks_node_cidr              = var.spoke_subnets.aks
+  location_shortcode         = var.location
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.hub.id
+  tags                       = var.tags
 }
 
 module "bastion" {
