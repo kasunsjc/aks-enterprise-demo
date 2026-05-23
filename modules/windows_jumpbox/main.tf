@@ -1,5 +1,7 @@
 locals {
   # Bootstrap PowerShell: installs Chocolatey, then Azure CLI, kubectl, kubelogin, Helm, git, Docker CLI, and Headlamp.
+  # kubelogin is installed via choco (not az aks install-cli) to avoid PATH
+  # refresh issues when az is freshly installed in the same process session.
   bootstrap_script = <<-PS1
     $ErrorActionPreference = 'Stop'
     Set-ExecutionPolicy Bypass -Scope Process -Force
@@ -9,8 +11,7 @@ locals {
       iex ((New-Object Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
     }
 
-    & "$env:ProgramData\\chocolatey\\bin\\choco.exe" install -y azure-cli kubernetes-cli kubernetes-helm git docker-cli headlamp --no-progress
-    az aks install-cli --kubelogin
+    & "$env:ProgramData\\chocolatey\\bin\\choco.exe" install -y azure-cli kubernetes-cli kubelogin kubernetes-helm git docker-cli headlamp --no-progress
   PS1
 }
 

@@ -47,14 +47,14 @@ resource "azurerm_private_endpoint" "grafana" {
 }
 
 # ============================================================================
-# Diagnostic settings — ship Grafana logs + metrics to Log Analytics.
+# Diagnostic settings — ship Grafana metrics to Log Analytics.
+# Note: Azure Managed Grafana does not expose log categories via diagnostic
+# settings — only AllMetrics is supported.
 # ============================================================================
 resource "azurerm_monitor_diagnostic_setting" "grafana" {
   name                       = "diag-${var.name_suffix}-grafana"
   target_resource_id         = azurerm_dashboard_grafana.this.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
-
-  enabled_log { category = "GrafanaLogs" }
 
   enabled_metric { category = "AllMetrics" }
 }
