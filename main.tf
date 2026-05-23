@@ -1,5 +1,3 @@
-#TODO - Jumpbox has to be moved to the platform and hub not in spoke
-
 locals {
   name_suffix           = "paks-${var.environment}"
   effective_operator_id = var.operator_object_id != "" ? var.operator_object_id : data.azurerm_client_config.current.object_id
@@ -21,6 +19,7 @@ resource "azurerm_resource_group" "spoke" {
   tags     = local.tags
 }
 
+# Stage 1 — hub/spoke networking, firewall, bastion, DNS zones
 module "platform" {
   source = "./modules/platform_stack"
 
@@ -36,6 +35,7 @@ module "platform" {
   tags                      = local.tags
 }
 
+# Stage 2 — private AKS cluster + Log Analytics workspace
 module "core" {
   source = "./modules/core_stack"
 
@@ -61,6 +61,28 @@ module "core" {
   depends_on = [module.platform]
 }
 
+# Stage 2b — jumpbox VM in hub snet-shared.
+# Placed here (not inside addons_stack) because it is a platform-layer hub
+# resource: it lives in the hub RG, uses the hub shared subnet, and must exist
+# before addons_stack so its MSI object ID is available for the ACR AcrPull
+# role assignment inside addons_stack.
+module "jumpbox" {
+  source = "./modules/jumpbox"
+
+  name_suffix         = local.name_suffix
+  resource_group_name = azurerm_resource_group.hub.name
+  location            = var.location
+  jumpbox_subnet_id   = module.platform.jumpbox_subnet_id
+  vm_size             = var.jumpbox_vm_size
+  admin_username      = var.jumpbox_admin_username
+  admin_password      = var.jumpbox_admin_password
+  aks_cluster_id      = module.core.aks_cluster_id
+  tags                = local.tags
+
+  depends_on = [module.core]
+}
+
+# Stage 3 — ACR, Prometheus/Grafana, alerting rules, user node pools
 module "addons" {
   source = "./modules/addons_stack"
 
@@ -70,7 +92,6 @@ module "addons" {
   spoke_resource_group_name  = azurerm_resource_group.spoke.name
   location                   = var.location
   pe_subnet_id               = module.platform.pe_subnet_id
-  jumpbox_subnet_id          = module.platform.jumpbox_subnet_id
   spoke_vnet_id              = module.platform.spoke_vnet_id
   hub_vnet_id                = module.platform.hub_vnet_id
   acr_dns_zone_id            = module.platform.acr_dns_zone_id
@@ -80,14 +101,12 @@ module "addons" {
   aks_subnet_id              = module.platform.aks_subnet_id
   aks_kubelet_object_id      = module.core.kubelet_identity_object_id
   operator_object_id         = local.effective_operator_id
-  jumpbox_vm_size            = var.jumpbox_vm_size
-  jumpbox_admin_username     = var.jumpbox_admin_username
-  jumpbox_admin_password     = var.jumpbox_admin_password
+  jumpbox_identity_object_id = module.jumpbox.identity_object_id
   grafana_major_version      = var.grafana_major_version
   action_group_ids           = var.alert_action_group_ids
   node_pools                 = var.node_pools
   log_analytics_workspace_id = module.core.log_analytics_workspace_id
   tags                       = local.tags
 
-  depends_on = [module.core]
+  depends_on = [module.jumpbox]
 }

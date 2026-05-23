@@ -22,10 +22,6 @@ variable "pe_subnet_id" {
   type = string
 }
 
-variable "jumpbox_subnet_id" {
-  type = string
-}
-
 variable "spoke_vnet_id" {
   type = string
 }
@@ -62,17 +58,9 @@ variable "operator_object_id" {
   type = string
 }
 
-variable "jumpbox_vm_size" {
-  type = string
-}
-
-variable "jumpbox_admin_username" {
-  type = string
-}
-
-variable "jumpbox_admin_password" {
-  type      = string
-  sensitive = true
+variable "jumpbox_identity_object_id" {
+  description = "Object ID of the jumpbox system-assigned managed identity (granted AcrPull on ACR)."
+  type        = string
 }
 
 variable "grafana_major_version" {
