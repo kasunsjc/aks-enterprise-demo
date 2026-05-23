@@ -7,35 +7,43 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
 ## Architecture
 
 ```
-                 ┌──────────────────────────── Hub VNet (10.0.0.0/16) ────────────────────────────┐
-                 │                                                                                  │
-   Operator ──▶  │ ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐ │
-   (browser)     │ │ AzureBastionSubnet   │    │ AzureFirewallSubnet  │    │ snet-shared          │ │
-                 │ │  Azure Bastion       │───▶│  Azure Firewall      │    │  Linux jumpbox       │ │
-                 │ └──────────────────────┘    └──────────┬───────────┘    │  Windows jumpbox     │ │
-                 │                                         │                └──────────┬───────────┘ │
-                 └─────────────────────────────────────────┼────────────────────────── ┼ ────────────┘
-                                                           │ forced egress (UDR)       │ kubectl /
-                                                           │                           │ RDP via Bastion
-                                                           ▼                           ▼
-                 ┌──────────────────────────── Spoke VNet (10.10.0.0/16) ──────────────────────────┐
-                 │                                                                                  │
-                 │ ┌──────────────────────┐    ┌──────────────────────┐                            │
-                 │ │ snet-aks             │    │ snet-pe              │                            │
-                 │ │   AKS nodes          │    │   PE for ACR         │                            │
-                 │ │   UDR → Firewall     │    │   PE for Grafana     │                            │
-                 │ └─────────┬────────────┘    │   PE for Prometheus  │                            │
-                 │           │ 0.0.0.0/0 → FW  └──────────┬───────────┘                            │
-                 │           │ allowed FQDNs               │ private IP                             │
-                 │           ▼                             ▼                                        │
-                 │  ┌────────────────────────────────────────────────────────────────────────────┐  │
-                 │  │  Private DNS Zones (linked to hub + spoke VNets):                          │  │
-                 │  │  • privatelink.<region>.azmk8s.io              → AKS private API endpoint  │  │
-                 │  │  • privatelink.azurecr.io                      → ACR private endpoint      │  │
-                 │  │  • privatelink.<region>.prometheus.monitor...  → Prometheus workspace       │  │
-                 │  │  • privatelink.grafana.azure.com               → Grafana endpoint           │  │
-                 │  └────────────────────────────────────────────────────────────────────────────┘  │
-                 └──────────────────────────────────────────────────────────────────────────────────┘
+                 ┌──────────────────────────────── Hub RG (rg-paks-<env>-hub) ───────────────────────────────────────────┐
+                 │                                                                                                         │
+                 │  ┌─────────────────────────────── Hub VNet (10.0.0.0/16) ──────────────────────────────────────────┐  │
+                 │  │                                                                                                   │  │
+   Operator ──▶  │  │ ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐                │  │
+   (browser)     │  │ │ AzureBastionSubnet   │    │ AzureFirewallSubnet  │    │ snet-shared          │                │  │
+                 │  │ │  Azure Bastion       │───▶│  Azure Firewall      │    │  Linux jumpbox       │                │  │
+                 │  │ └──────────────────────┘    └──────────┬───────────┘    │  Windows jumpbox     │                │  │
+                 │  │                                         │                └──────────┬───────────┘                │  │
+                 │  └─────────────────────────────────────────┼────────────────────────── ┼ ──────────────────────────┘  │
+                 │                                             │                           │                              │
+                 │  ┌── Private DNS Zones (hub RG, linked to hub + spoke VNets) ────────────────────────────────────┐   │
+                 │  │  • privatelink.<region>.azmk8s.io              → AKS private API endpoint                     │   │
+                 │  │  • privatelink.azurecr.io                      → ACR private endpoint                         │   │
+                 │  │  • privatelink.<region>.prometheus.monitor...  → Prometheus workspace                          │   │
+                 │  │  • privatelink.grafana.azure.com               → Grafana endpoint                              │   │
+                 │  └────────────────────────────────────────────────────────────────────────────────────────────────┘   │
+                 │                                             │ forced egress (UDR)       │ kubectl /                    │
+                 └─────────────────────────────────────────────┼────────────────────────── ┼ ───────────────────────────┘
+                                                               │                           │ RDP via Bastion
+                                                               ▼                           ▼
+                 ┌────────────────────────── Spoke RG (rg-paks-<env>-spoke) ───────────────────────────────────────────┐
+                 │                                                                                                       │
+                 │  ┌─────────────────────────────── Spoke VNet (10.10.0.0/16) ──────────────────────────────────────┐ │
+                 │  │                                                                                                  │ │
+                 │  │ ┌──────────────────────┐    ┌──────────────────────┐                                           │ │
+                 │  │ │ snet-aks             │    │ snet-pe              │                                           │ │
+                 │  │ │   AKS nodes          │    │   PE for ACR         │                                           │ │
+                 │  │ │   UDR → Firewall     │    │   PE for Grafana     │                                           │ │
+                 │  │ └─────────┬────────────┘    │   PE for Prometheus  │                                           │ │
+                 │  │           │ 0.0.0.0/0 → FW  └──────────────────────┘                                           │ │
+                 │  └───────────┼──────────────────────────────────────────────────────────────────────────────────── ┘ │
+                 │              │                                                                                        │
+                 │  AKS cluster │  ACR · Azure Monitor Workspace · Grafana · Spoke Log Analytics                        │
+                 └──────────────┼────────────────────────────────────────────────────────────────────────────────────── ┘
+                                │ allowed FQDNs via Firewall
+                                ▼ Internet / Azure services
 ```
 
 **What the current Terraform implementation deploys:**
