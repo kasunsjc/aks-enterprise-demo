@@ -256,6 +256,66 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 - **Diagnostic settings on all major resources** (Firewall, AKS, ACR, Grafana, Prometheus) feed two Log Analytics workspaces: one for the hub/firewall, one for spoke/workload diagnostics.
 - **Staged orchestration (`platform → core → addons`)** gives predictable rollout sequencing for enterprise environments while keeping module boundaries reusable.
 
+## Azure CAF Alignment
+
+This repo follows the [Azure Cloud Adoption Framework hub-spoke topology](https://learn.microsoft.com/azure/architecture/reference-architectures/hybrid-networking/hub-spoke). The table below records the CAF audit findings and what changes if you scale to multiple spokes.
+
+### Current placement — CAF verdict
+
+| Resource | Current location | CAF verdict |
+|---|---|---|
+| Azure Firewall | Hub RG | ✅ Shared connectivity — hub |
+| Azure Bastion | Hub RG | ✅ Shared management access — hub |
+| Linux + Windows jumpboxes | Hub RG (`snet-shared`) | ✅ Shared ops tooling — hub |
+| Private DNS Zones (all 4) | Hub RG, linked to hub + spoke VNets | ✅ Shared platform DNS — hub |
+| Hub Log Analytics Workspace | Hub RG | ✅ Platform diagnostics — hub |
+| VNet peerings | Hub RG (hub-side) | ✅ Connectivity layer — hub |
+| AKS cluster | Spoke RG | ✅ Workload — spoke |
+| Route table / UDR | Spoke RG | ✅ Workload networking — spoke |
+| Private endpoints (ACR, Prometheus, Grafana) | Spoke RG (`snet-pe`) | ✅ Workload NICs — spoke |
+| ACR | Spoke RG | ⚠️ Single workload → spoke OK; shared registry → hub/shared services |
+| Azure Monitor Workspace (Prometheus) | Spoke RG | ⚠️ Single workload → spoke OK; platform-wide observability → hub |
+| Grafana | Spoke RG | ⚠️ Single workload → spoke OK; platform-wide observability → hub |
+| Spoke Log Analytics Workspace | Spoke RG | ⚠️ Single workload → spoke OK; centralised logging → hub |
+
+### What changes when you scale to multiple spokes
+
+The current design is correct for a single-spoke, single-AKS environment. When you add a second spoke (e.g. a data-services spoke or a second team's AKS cluster), three resources should move from the spoke to the hub or a dedicated **shared services** spoke:
+
+#### 1 — ACR → hub / shared services
+
+A container registry that serves multiple AKS clusters should not live inside one cluster's spoke. Centralise it:
+
+- Create ACR in the hub RG (or a dedicated `rg-paks-shared` RG)
+- Move `privatelink.azurecr.io` DNS zone link to all peered spokes
+- Grant `AcrPull` to every spoke's kubelet MSI
+
+#### 2 — Prometheus + Grafana → hub / management spoke
+
+Azure Monitor Workspace and Grafana are platform-wide observability tools owned by the platform team. With multiple spokes:
+
+- Deploy one Monitor Workspace + Grafana in the hub or a management spoke
+- Each AKS cluster's AMA metrics agent points at the shared workspace
+- All recording/alerting rules live in one place — no per-spoke duplication
+- Grafana gets a single pane of glass across all clusters
+
+#### 3 — Consolidate Log Analytics Workspaces
+
+Currently there are two workspaces: one hub workspace (Firewall diagnostics) and one spoke workspace (AKS + addon diagnostics). With multiple spokes, consider merging into a single hub workspace:
+
+- Centralised query surface across all resources
+- Simpler RBAC — platform team has one workspace to manage
+- Reduces cost (no duplicate ingestion of common log types)
+
+### What does **not** change regardless of scale
+
+| Resource | Reason |
+|---|---|
+| Private DNS Zones stay in hub | Already correct — DNS is always a platform/connectivity concern in CAF |
+| Jumpboxes stay in hub `snet-shared` | One pair of management VMs reaches all spokes through VNet peering |
+| Firewall + Bastion stay in hub | Hub is the single egress/ingress control point by design |
+| Private endpoints stay in each spoke | The NIC must live in the spoke subnet so traffic stays local to that VNet |
+
 ## Egress rules
 
 AKS [requires specific egress](https://learn.microsoft.com/azure/aks/limit-egress-traffic). This repo implements a minimal allow-list in the Firewall Policy:
