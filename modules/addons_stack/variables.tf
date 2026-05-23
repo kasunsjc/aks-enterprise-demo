@@ -75,19 +75,6 @@ variable "jumpbox_admin_password" {
   sensitive = true
 }
 
-variable "windows_jumpbox_vm_size" {
-  type = string
-}
-
-variable "windows_jumpbox_admin_username" {
-  type = string
-}
-
-variable "windows_jumpbox_admin_password" {
-  type      = string
-  sensitive = true
-}
-
 variable "grafana_major_version" {
   type = number
 }

@@ -64,33 +64,30 @@ module "core" {
 module "addons" {
   source = "./modules/addons_stack"
 
-  name_suffix                    = local.name_suffix
-  unique_identifier              = var.unique_identifier
-  hub_resource_group_name        = azurerm_resource_group.hub.name
-  spoke_resource_group_name      = azurerm_resource_group.spoke.name
-  location                       = var.location
-  pe_subnet_id                   = module.platform.pe_subnet_id
-  jumpbox_subnet_id              = module.platform.jumpbox_subnet_id
-  spoke_vnet_id                  = module.platform.spoke_vnet_id
-  hub_vnet_id                    = module.platform.hub_vnet_id
-  acr_dns_zone_id                = module.platform.acr_dns_zone_id
-  prometheus_dns_zone_id         = module.platform.prometheus_dns_zone_id
-  grafana_dns_zone_id            = module.platform.grafana_dns_zone_id
-  aks_cluster_id                 = module.core.aks_cluster_id
-  aks_subnet_id                  = module.platform.aks_subnet_id
-  aks_kubelet_object_id          = module.core.kubelet_identity_object_id
-  operator_object_id             = local.effective_operator_id
-  jumpbox_vm_size                = var.jumpbox_vm_size
-  jumpbox_admin_username         = var.jumpbox_admin_username
-  jumpbox_admin_password         = var.jumpbox_admin_password
-  windows_jumpbox_vm_size        = var.windows_jumpbox_vm_size
-  windows_jumpbox_admin_username = var.windows_jumpbox_admin_username
-  windows_jumpbox_admin_password = var.windows_jumpbox_admin_password
-  grafana_major_version          = var.grafana_major_version
-  action_group_ids               = var.alert_action_group_ids
-  node_pools                     = var.node_pools
-  log_analytics_workspace_id     = module.core.log_analytics_workspace_id
-  tags                           = local.tags
+  name_suffix                = local.name_suffix
+  unique_identifier          = var.unique_identifier
+  hub_resource_group_name    = azurerm_resource_group.hub.name
+  spoke_resource_group_name  = azurerm_resource_group.spoke.name
+  location                   = var.location
+  pe_subnet_id               = module.platform.pe_subnet_id
+  jumpbox_subnet_id          = module.platform.jumpbox_subnet_id
+  spoke_vnet_id              = module.platform.spoke_vnet_id
+  hub_vnet_id                = module.platform.hub_vnet_id
+  acr_dns_zone_id            = module.platform.acr_dns_zone_id
+  prometheus_dns_zone_id     = module.platform.prometheus_dns_zone_id
+  grafana_dns_zone_id        = module.platform.grafana_dns_zone_id
+  aks_cluster_id             = module.core.aks_cluster_id
+  aks_subnet_id              = module.platform.aks_subnet_id
+  aks_kubelet_object_id      = module.core.kubelet_identity_object_id
+  operator_object_id         = local.effective_operator_id
+  jumpbox_vm_size            = var.jumpbox_vm_size
+  jumpbox_admin_username     = var.jumpbox_admin_username
+  jumpbox_admin_password     = var.jumpbox_admin_password
+  grafana_major_version      = var.grafana_major_version
+  action_group_ids           = var.alert_action_group_ids
+  node_pools                 = var.node_pools
+  log_analytics_workspace_id = module.core.log_analytics_workspace_id
+  tags                       = local.tags
 
   depends_on = [module.core]
 }

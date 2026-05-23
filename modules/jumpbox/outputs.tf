@@ -1,9 +1,17 @@
 output "vm_name" {
   description = "Name of the jumpbox VM."
-  value       = azurerm_linux_virtual_machine.jumpbox.name
+  value = var.os_type == "linux" ? (
+    azurerm_linux_virtual_machine.jumpbox[0].name
+    ) : (
+    azurerm_windows_virtual_machine.jumpbox[0].name
+  )
 }
 
 output "identity_object_id" {
   description = "Object ID of the jumpbox system-assigned managed identity."
-  value       = azurerm_linux_virtual_machine.jumpbox.identity[0].principal_id
+  value = var.os_type == "linux" ? (
+    azurerm_linux_virtual_machine.jumpbox[0].identity[0].principal_id
+    ) : (
+    azurerm_windows_virtual_machine.jumpbox[0].identity[0].principal_id
+  )
 }

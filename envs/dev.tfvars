@@ -48,11 +48,6 @@ jumpbox_admin_username = "azureadmin"
 # jumpbox_admin_password — set via TF_VAR_jumpbox_admin_password or -var flag
 # operator_object_id     — set via TF_VAR_operator_object_id or -var flag
 
-# Windows Jumpbox
-windows_jumpbox_vm_size        = "Standard_D2s_v3"
-windows_jumpbox_admin_username = "azureadmin"
-# windows_jumpbox_admin_password — set via TF_VAR_windows_jumpbox_admin_password or -var flag
-
 tags = {
   workload    = "private-aks-landing-zone"
   environment = "dev"

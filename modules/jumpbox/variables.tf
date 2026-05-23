@@ -18,10 +18,56 @@ variable "jumpbox_subnet_id" {
   type        = string
 }
 
+variable "os_type" {
+  description = "Operating system type for the jumpbox VM: 'linux' or 'windows'."
+  type        = string
+  default     = "linux"
+
+  validation {
+    condition     = contains(["linux", "windows"], var.os_type)
+    error_message = "os_type must be 'linux' or 'windows'."
+  }
+}
+
 variable "vm_size" {
   description = "VM size for the jumpbox."
   type        = string
   default     = "Standard_B2s"
+}
+
+variable "image_reference" {
+  description = <<-EOT
+    Source image for the jumpbox VM. When null, a sensible default is used based on os_type:
+    - linux   → Canonical Ubuntu 22.04 LTS Gen2
+    - windows → Microsoft Windows Server 2022 Datacenter Gen2
+  EOT
+  type = object({
+    publisher = string
+    offer     = string
+    sku       = string
+    version   = string
+  })
+  default = null
+}
+
+variable "custom_data" {
+  description = <<-EOT
+    Base64-encoded cloud-init payload (Linux only). When null, a default script that
+    installs Azure CLI, kubectl, kubelogin, Helm, k9s, and Docker is used.
+    Ignored when os_type = 'windows'.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "bootstrap_script" {
+  description = <<-EOT
+    PowerShell bootstrap script (Windows only). When null, a default Chocolatey-based
+    script that installs Azure CLI, kubectl, kubelogin, Helm, git, Docker CLI, and
+    Headlamp is used. Ignored when os_type = 'linux'.
+  EOT
+  type        = string
+  default     = null
 }
 
 variable "admin_username" {

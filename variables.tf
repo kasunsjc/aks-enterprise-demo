@@ -69,27 +69,9 @@ variable "spoke_subnets" {
 }
 
 variable "jumpbox_vm_size" {
-  description = "Size of the Linux jumpbox VM."
+  description = "Size of the jumpbox VM."
   type        = string
   default     = "Standard_B2s"
-}
-
-variable "windows_jumpbox_vm_size" {
-  description = "Size of the Windows jumpbox VM."
-  type        = string
-  default     = "Standard_D2s_v5"
-}
-
-variable "windows_jumpbox_admin_username" {
-  description = "Admin username on the Windows jumpbox VM."
-  type        = string
-  default     = "azureadmin"
-}
-
-variable "windows_jumpbox_admin_password" {
-  description = "Admin password on the Windows jumpbox VM. Use a strong password; this is sensitive."
-  type        = string
-  sensitive   = true
 }
 
 # ---------------------------------------------------------------------------

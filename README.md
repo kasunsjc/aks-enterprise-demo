@@ -13,8 +13,8 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
                  │  │                                                                                                   │  │
    Operator ──▶  │  │ ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐                │  │
    (browser)     │  │ │ AzureBastionSubnet   │    │ AzureFirewallSubnet  │    │ snet-shared          │                │  │
-                 │  │ │  Azure Bastion       │───▶│  Azure Firewall      │    │  Linux jumpbox       │                │  │
-                 │  │ └──────────────────────┘    └──────────┬───────────┘    │  Windows jumpbox     │                │  │
+                 │  │ │  Azure Bastion       │───▶│  Azure Firewall      │    │  Jumpbox (Linux or   │                │  │
+                 │  │ └──────────────────────┘    └──────────┬───────────┘    │  Windows via os_type)│                │  │
                  │  │                                         │                └──────────┬───────────┘                │  │
                  │  └─────────────────────────────────────────┼────────────────────────── ┼ ──────────────────────────┘  │
                  │                                             │                           │                              │
@@ -57,7 +57,7 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
 | AKS-required firewall rules | Minimal FQDN/port allow-list (network + application rule collections) |
 | Route table on `snet-aks` | UDR: `0.0.0.0/0` → Firewall private IP (`userDefinedRouting`) |
 | **Azure Bastion (Standard SKU)** | Browser-based SSH/RDP; tunneling + copy-paste enabled; no public VM IPs |
-| **Linux + Windows jumpboxes** in hub `snet-shared` | System-assigned MI + `AKS Cluster User Role`; one set serves all spokes via VNet peering |
+| **Jumpbox** in hub `snet-shared` | System-assigned MI + `AKS Cluster User Role`; configurable OS (`os_type = "linux"` or `"windows"`); one VM serves all spokes via VNet peering |
 | 4 × Private DNS Zones | AKS API, ACR, Prometheus, Grafana — each linked to both hub + spoke VNets |
 | **Private AKS cluster** | `private_cluster_enabled = true`, no public FQDN, BYO DNS zone, user-assigned identity |
 | User-assigned MI for AKS | Pre-granted `Private DNS Zone Contributor` + `Network Contributor` before cluster creation |
@@ -66,7 +66,7 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
 | AKS operator access | `Azure Kubernetes Service RBAC Cluster Admin` granted to the operator identity |
 | Auto-scaling user node pools | Defined in `node_pools` tfvars variable; managed by the `aks_node_pools` module |
 | **Premium ACR** with private endpoint | `public_network_access_enabled = false` — all image pulls stay on-net |
-| ACR role assignments | Kubelet → `AcrPull`; operator → `AcrPush`; jumpbox MIs → `AcrPull` |
+| ACR role assignments | Kubelet → `AcrPull`; operator → `AcrPush`; jumpbox MI → `AcrPull` |
 | **Azure Monitor Workspace** (Managed Prometheus) | Private endpoint (`prometheusMetrics`); no public access; DCR + DCR association to AKS |
 | **Managed Grafana** (private) | Integrated with Monitor workspace; Grafana MI granted `Monitoring Data Reader` |
 | Prometheus recording rules | Node (CPU, memory, disk, network) + container (CPU, memory, requests) rule groups |
@@ -99,8 +99,7 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
     ├── recording_rules/
     ├── alerting_rules/
     ├── aks_node_pools/
-    ├── jumpbox/
-    └── windows_jumpbox/
+    └── jumpbox/
 ```
 
 Each module has `main.tf`, `variables.tf`, and `outputs.tf`.
@@ -142,7 +141,6 @@ or identity-specific:
 | Variable | How to supply |
 |---|---|
 | `jumpbox_admin_password` | `export TF_VAR_jumpbox_admin_password='...'` |
-| `windows_jumpbox_admin_password` | `export TF_VAR_windows_jumpbox_admin_password='...'` |
 | `operator_object_id` | Optional. Defaults to the currently authenticated principal (`az login` identity). Override with `export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)` |
 
 ## Usage
@@ -154,7 +152,6 @@ terraform init
 
 # Set secrets once as env vars (never in var files)
 export TF_VAR_jumpbox_admin_password='<a-strong-password>'
-export TF_VAR_windows_jumpbox_admin_password='<a-strong-password>'
 # operator_object_id is optional — omit to default to the logged-in principal
 # export TF_VAR_operator_object_id=$(az ad signed-in-user show --query id -o tsv)
 
@@ -196,9 +193,13 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 
 ## Connecting to the cluster
 
-### Linux jumpbox (SSH via Bastion)
+### Jumpbox (SSH or RDP via Bastion)
 
-1. In the Azure portal, open the Linux jumpbox VM in **`rg-paks-<env>-hub`** → **Connect → Bastion**.
+The jumpbox module deploys a single VM whose OS is controlled by the `os_type` variable (default: `"linux"`). Both flavours are reachable only via Azure Bastion — no public IP.
+
+#### Linux (default)
+
+1. In the Azure portal, open the jumpbox VM in **`rg-paks-<env>-hub`** → **Connect → Bastion**.
 2. Log in with `jumpbox_admin_username` / `jumpbox_admin_password`.
 3. On the jumpbox:
 
@@ -215,11 +216,13 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 
    ![k9s console](images/k9s-console.png)
 
-### Windows jumpbox (RDP via Bastion)
+#### Windows (opt-in)
 
-1. In the Azure portal, open the Windows jumpbox VM in **`rg-paks-<env>-hub`** → **Connect → Bastion**.
-2. Log in with `windows_jumpbox_admin_username` / `windows_jumpbox_admin_password`.
-3. On first boot, the Custom Script Extension installs jumpbox tools via Chocolatey. Once complete, open a new PowerShell window and run:
+Set `os_type = "windows"` in your `envs/*.tfvars` (or via `-var`) to deploy a Windows Server jumpbox instead. On first boot, a Custom Script Extension installs toolchain tools via Chocolatey.
+
+1. In the Azure portal, open the jumpbox VM in **`rg-paks-<env>-hub`** → **Connect → Bastion (RDP)**.
+2. Log in with `jumpbox_admin_username` / `jumpbox_admin_password`.
+3. Once the bootstrap extension completes, open PowerShell and run:
 
    ```powershell
    az login
@@ -229,18 +232,14 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
    helm version
    ```
 
-4. To push an image:
-
-   ```bash
-   az acr build --registry <acr-name-from-outputs> --image <image>:<tag> .
-   ```
-
 ### Jumpbox tooling installed by bootstrap
 
-| Jumpbox | Installed tools |
+| `os_type` | Installed tools |
 |---|---|
-| Linux jumpbox | Azure CLI, kubectl, kubelogin, Helm, Docker Engine/CLI, k9s |
-| Windows jumpbox | Azure CLI, kubectl, kubelogin, Helm, git, Docker CLI, Headlamp |
+| `linux` | Azure CLI, kubectl, kubelogin, Helm, Docker Engine/CLI, k9s |
+| `windows` | Azure CLI, kubectl, kubelogin, Helm, git, Docker CLI, Headlamp |
+
+Supply a custom `custom_data` (Linux) or `bootstrap_script` (Windows) variable on the `jumpbox` module to override the default toolchain.
 
 ## Why this design?
 
@@ -252,7 +251,7 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 - **Azure CNI Overlay + Cilium** gives each pod its own IP from a dedicated overlay CIDR (avoids subnet exhaustion), while Cilium provides eBPF-based network policy enforcement and dataplane acceleration.
 - **OIDC issuer + Workload Identity** allows pods to exchange a Kubernetes service account token for an Azure AD token — no secrets mounted into pods.
 - **Azure Policy add-on** enforces OPA-based governance on the cluster (admission webhook backed by Azure Policy).
-- **Jumpboxes in hub `snet-shared`** means one pair of management VMs reaches all spokes through VNet peering — consistent toolchain, no per-spoke VM duplication.
+- **Jumpboxes in hub `snet-shared`** means a single management VM reaches all spokes through VNet peering — consistent toolchain, no per-spoke VM duplication. The `os_type` variable switches between Linux and Windows without changing any other wiring.
 - **Diagnostic settings on all major resources** (Firewall, AKS, ACR, Grafana, Prometheus) feed two Log Analytics workspaces: one for the hub/firewall, one for spoke/workload diagnostics.
 - **Staged orchestration (`platform → core → addons`)** gives predictable rollout sequencing for enterprise environments while keeping module boundaries reusable.
 
@@ -266,7 +265,7 @@ This repo follows the [Azure Cloud Adoption Framework hub-spoke topology](https:
 |---|---|---|
 | Azure Firewall | Hub RG | ✅ Shared connectivity — hub |
 | Azure Bastion | Hub RG | ✅ Shared management access — hub |
-| Linux + Windows jumpboxes | Hub RG (`snet-shared`) | ✅ Shared ops tooling — hub |
+| **Jumpbox** (configurable OS) | Hub RG (`snet-shared`) | ✅ Shared ops tooling — hub |
 | Private DNS Zones (all 4) | Hub RG, linked to hub + spoke VNets | ✅ Shared platform DNS — hub |
 | Hub Log Analytics Workspace | Hub RG | ✅ Platform diagnostics — hub |
 | VNet peerings | Hub RG (hub-side) | ✅ Connectivity layer — hub |
@@ -334,7 +333,7 @@ Currently there are two workspaces: one hub workspace (Firewall diagnostics) and
 | Resource | Reason |
 |---|---|
 | Private DNS Zones stay in hub | Already correct — DNS is always a platform/connectivity concern in CAF |
-| Jumpboxes stay in hub `snet-shared` | One pair of management VMs reaches all spokes through VNet peering |
+| Jumpbox stays in hub `snet-shared` | One management VM reaches all spokes through VNet peering |
 | Firewall + Bastion stay in hub | Hub is the single egress/ingress control point by design |
 | Private endpoints stay in each spoke | The NIC must live in the spoke subnet so traffic stays local to that VNet |
 
