@@ -15,6 +15,11 @@ locals {
   PS1
 }
 
+# Tracks the script hash — when the script changes, the extension is replaced.
+resource "terraform_data" "bootstrap_version" {
+  input = sha256(local.bootstrap_script)
+}
+
 # ============================================================================
 # Windows Jumpbox — no public IP; reachable only through Azure Bastion (RDP).
 # A Custom Script Extension installs Azure CLI, kubectl, kubelogin, Helm, git, Docker CLI,
@@ -75,6 +80,13 @@ resource "azurerm_virtual_machine_extension" "bootstrap" {
   protected_settings = jsonencode({
     commandToExecute = "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${textencodebase64(local.bootstrap_script, "UTF-16LE")}"
   })
+
+  # Force replacement whenever the bootstrap script content changes so the
+  # updated script actually runs. CustomScriptExtension cannot be updated
+  # in-place — it must be deleted and recreated.
+  lifecycle {
+    replace_triggered_by = [terraform_data.bootstrap_version]
+  }
 }
 
 # ============================================================================
