@@ -19,4 +19,12 @@ resource "azurerm_kubernetes_cluster_node_pool" "this" {
   node_labels           = each.value.node_labels
   node_taints           = each.value.node_taints
   tags                  = var.tags
+
+  # Explicitly pin upgrade_settings to Azure's defaults to prevent
+  # perpetual drift — Azure always writes these fields on create.
+  upgrade_settings {
+    max_surge                     = "10%"
+    drain_timeout_in_minutes      = 0
+    node_soak_duration_in_minutes = 0
+  }
 }
