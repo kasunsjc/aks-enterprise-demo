@@ -2,7 +2,7 @@ module "jumpbox" {
   source = "../jumpbox"
 
   name_suffix         = var.name_suffix
-  resource_group_name = var.spoke_resource_group_name
+  resource_group_name = var.hub_resource_group_name
   location            = var.location
   jumpbox_subnet_id   = var.jumpbox_subnet_id
   vm_size             = var.jumpbox_vm_size
@@ -16,7 +16,7 @@ module "windows_jumpbox" {
   source = "../windows_jumpbox"
 
   name_suffix         = var.name_suffix
-  resource_group_name = var.spoke_resource_group_name
+  resource_group_name = var.hub_resource_group_name
   location            = var.location
   jumpbox_subnet_id   = var.jumpbox_subnet_id
   vm_size             = var.windows_jumpbox_vm_size

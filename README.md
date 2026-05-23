@@ -11,22 +11,23 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
                  │                                                                                  │
    Operator ──▶  │ ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐ │
    (browser)     │ │ AzureBastionSubnet   │    │ AzureFirewallSubnet  │    │ snet-shared          │ │
-                 │ │  Azure Bastion       │    │  Azure Firewall      │    │  (future shared svc) │ │
-                 │ └──────────┬───────────┘    └──────────┬───────────┘    └──────────────────────┘ │
-                 │            │                            │                                          │
-                 └────────────┼────────────────────────────┼──────────────────────────────────────────┘
-                              │ VNet peering               │ forced egress (UDR)
-                              ▼                            │
+                 │ │  Azure Bastion       │───▶│  Azure Firewall      │    │  Linux jumpbox       │ │
+                 │ └──────────────────────┘    └──────────┬───────────┘    │  Windows jumpbox     │ │
+                 │                                         │                └──────────┬───────────┘ │
+                 └─────────────────────────────────────────┼────────────────────────── ┼ ────────────┘
+                                                           │ forced egress (UDR)       │ kubectl /
+                                                           │                           │ RDP via Bastion
+                                                           ▼                           ▼
                  ┌──────────────────────────── Spoke VNet (10.10.0.0/16) ──────────────────────────┐
                  │                                                                                  │
-                 │ ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐ │
-                 │ │ snet-jumpbox         │    │ snet-aks             │    │ snet-pe              │ │
-                 │ │   Linux VM (NIC only)│    │   AKS nodes          │    │   PE for ACR         │ │
-                 │ │                      │    │   UDR → Firewall     │    │                      │ │
-                 │ └──────────┬───────────┘    └─────────┬────────────┘    └──────────┬───────────┘ │
-                 │            │ kubectl via              │ 0.0.0.0/0 → FW            │ private IP   │
-                 │            │ private API IP           │ allowed FQDNs / ports      │              │
-                 │            ▼                          ▼                             ▼              │
+                 │ ┌──────────────────────┐    ┌──────────────────────┐                            │
+                 │ │ snet-aks             │    │ snet-pe              │                            │
+                 │ │   AKS nodes          │    │   PE for ACR         │                            │
+                 │ │   UDR → Firewall     │    │   PE for Grafana     │                            │
+                 │ └─────────┬────────────┘    │   PE for Prometheus  │                            │
+                 │           │ 0.0.0.0/0 → FW  └──────────┬───────────┘                            │
+                 │           │ allowed FQDNs               │ private IP                             │
+                 │           ▼                             ▼                                        │
                  │  ┌────────────────────────────────────────────────────────────────────────────┐  │
                  │  │  Private DNS Zones (linked to hub + spoke VNets):                          │  │
                  │  │  • privatelink.<region>.azmk8s.io  → AKS private API endpoint              │  │
@@ -39,13 +40,14 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
 
 | Component | Notes |
 |---|---|
-| Hub VNet + 3 subnets | Firewall, Bastion, shared services |
-| Spoke VNet + 3 subnets | AKS nodes, private endpoints, jumpbox |
+| Hub VNet + 3 subnets | Firewall (`AzureFirewallSubnet`), Bastion (`AzureBastionSubnet`), shared services (`snet-shared`) |
+| Spoke VNet + 2 subnets | AKS nodes (`snet-aks`), private endpoints (`snet-pe`) |
 | Bidirectional VNet peerings | Hub ↔ spoke routing |
 | **Azure Firewall (Standard)** + Firewall Policy | All cluster egress audited in one place |
 | AKS-required firewall rules | Minimal FQDN/port allow-list (network + application rules) |
 | Route table on `snet-aks` | UDR: `0.0.0.0/0` → Firewall private IP |
-| **Azure Bastion (Standard SKU)** | Browser-based SSH to jumpbox — no public IPs needed |
+| **Azure Bastion (Standard SKU)** | Browser-based SSH/RDP to jumpboxes — no public IPs needed |
+| **Linux + Windows jumpboxes** in hub `snet-shared` | Shared management VMs; one set serves all spokes |
 | Private DNS Zones | Name resolution for AKS API + ACR over private network |
 | **Private AKS cluster** | `private_cluster_enabled = true`, BYO DNS zone, user-assigned identity |
 | User-assigned managed identity for AKS | Pre-granted Private DNS Zone Contributor + Network Contributor |

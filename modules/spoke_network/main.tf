@@ -24,13 +24,6 @@ resource "azurerm_subnet" "pe" {
   private_endpoint_network_policies = "Disabled"
 }
 
-resource "azurerm_subnet" "jumpbox" {
-  name                 = "snet-jumpbox"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.spoke.name
-  address_prefixes     = [var.subnet_cidr_jumpbox]
-}
-
 # ============================================================================
 # VNet peerings (both directions must be created for traffic to flow).
 # ============================================================================

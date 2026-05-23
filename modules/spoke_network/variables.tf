@@ -28,11 +28,6 @@ variable "subnet_cidr_pe" {
   type        = string
 }
 
-variable "subnet_cidr_jumpbox" {
-  description = "CIDR for the jumpbox subnet."
-  type        = string
-}
-
 variable "hub_vnet_id" {
   description = "Resource ID of the hub VNet (for peering)."
   type        = string

@@ -17,8 +17,3 @@ output "pe_subnet_id" {
   description = "Resource ID of the private-endpoint subnet."
   value       = azurerm_subnet.pe.id
 }
-
-output "jumpbox_subnet_id" {
-  description = "Resource ID of the jumpbox subnet."
-  value       = azurerm_subnet.jumpbox.id
-}

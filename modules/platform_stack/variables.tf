@@ -32,9 +32,8 @@ variable "hub_subnets" {
 
 variable "spoke_subnets" {
   type = object({
-    aks     = string
-    pe      = string
-    jumpbox = string
+    aks = string
+    pe  = string
   })
 }
 

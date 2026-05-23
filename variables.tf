@@ -59,14 +59,12 @@ variable "hub_subnets" {
 variable "spoke_subnets" {
   description = "CIDRs for spoke subnets."
   type = object({
-    aks     = string
-    pe      = string
-    jumpbox = string
+    aks = string
+    pe  = string
   })
   default = {
-    aks     = "10.10.1.0/24"
-    pe      = "10.10.2.0/24"
-    jumpbox = "10.10.3.0/27"
+    aks = "10.10.1.0/24"
+    pe  = "10.10.2.0/24"
   }
 }
 

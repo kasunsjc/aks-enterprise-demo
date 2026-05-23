@@ -15,7 +15,8 @@ output "pe_subnet_id" {
 }
 
 output "jumpbox_subnet_id" {
-  value = module.spoke_network.jumpbox_subnet_id
+  description = "Resource ID of the hub shared subnet where jumpboxes are deployed."
+  value       = module.hub_network.shared_subnet_id
 }
 
 output "aks_dns_zone_id" {

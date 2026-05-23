@@ -19,9 +19,8 @@ hub_subnets = {
 }
 
 spoke_subnets = {
-  aks     = "10.12.1.0/24"
-  pe      = "10.12.2.0/24"
-  jumpbox = "10.12.3.0/27"
+  aks = "10.12.1.0/24"
+  pe  = "10.12.2.0/24"
 }
 
 # AKS — system pool (HA: min 2 for zone redundancy)

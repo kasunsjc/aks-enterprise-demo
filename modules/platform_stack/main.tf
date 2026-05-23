@@ -53,7 +53,6 @@ module "spoke_network" {
   address_space           = var.spoke_address_space
   subnet_cidr_aks         = var.spoke_subnets.aks
   subnet_cidr_pe          = var.spoke_subnets.pe
-  subnet_cidr_jumpbox     = var.spoke_subnets.jumpbox
   hub_vnet_id             = module.hub_network.vnet_id
   hub_vnet_name           = module.hub_network.vnet_name
   hub_resource_group_name = var.hub_resource_group_name

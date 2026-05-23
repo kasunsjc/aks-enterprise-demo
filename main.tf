@@ -1,3 +1,5 @@
+#TODO - Jumpbox has to be moved to the platform and hub not in spoke
+
 locals {
   name_suffix           = "paks-${var.environment}"
   effective_operator_id = var.operator_object_id != "" ? var.operator_object_id : data.azurerm_client_config.current.object_id
