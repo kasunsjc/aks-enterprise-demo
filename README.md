@@ -30,8 +30,10 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
                  │           ▼                             ▼                                        │
                  │  ┌────────────────────────────────────────────────────────────────────────────┐  │
                  │  │  Private DNS Zones (linked to hub + spoke VNets):                          │  │
-                 │  │  • privatelink.<region>.azmk8s.io  → AKS private API endpoint              │  │
-                 │  │  • privatelink.azurecr.io          → ACR private endpoint                  │  │
+                 │  │  • privatelink.<region>.azmk8s.io              → AKS private API endpoint  │  │
+                 │  │  • privatelink.azurecr.io                      → ACR private endpoint      │  │
+                 │  │  • privatelink.<region>.prometheus.monitor...  → Prometheus workspace       │  │
+                 │  │  • privatelink.grafana.azure.com               → Grafana endpoint           │  │
                  │  └────────────────────────────────────────────────────────────────────────────┘  │
                  └──────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -40,23 +42,30 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
 
 | Component | Notes |
 |---|---|
-| Hub VNet + 3 subnets | Firewall (`AzureFirewallSubnet`), Bastion (`AzureBastionSubnet`), shared services (`snet-shared`) |
-| Spoke VNet + 2 subnets | AKS nodes (`snet-aks`), private endpoints (`snet-pe`) |
-| Bidirectional VNet peerings | Hub ↔ spoke routing |
-| **Azure Firewall (Standard)** + Firewall Policy | All cluster egress audited in one place |
-| AKS-required firewall rules | Minimal FQDN/port allow-list (network + application rules) |
-| Route table on `snet-aks` | UDR: `0.0.0.0/0` → Firewall private IP |
-| **Azure Bastion (Standard SKU)** | Browser-based SSH/RDP to jumpboxes — no public IPs needed |
-| **Linux + Windows jumpboxes** in hub `snet-shared` | Shared management VMs; one set serves all spokes |
-| Private DNS Zones | Name resolution for AKS API + ACR over private network |
-| **Private AKS cluster** | `private_cluster_enabled = true`, BYO DNS zone, user-assigned identity |
-| User-assigned managed identity for AKS | Pre-granted Private DNS Zone Contributor + Network Contributor |
-| **Premium ACR** with private endpoint | `public_network_access_enabled = false` — image pulls stay on-net |
-| `AcrPull` on ACR for AKS kubelet | No registry secrets; MSI-based auth |
-| AKS Azure Monitor metrics add-on | `monitor_metrics {}` enabled on AKS for AMA/managed Prometheus pipeline |
-| Azure Monitor workspace + DCR association | Managed Prometheus workspace wired to AKS via DCR association |
-| Managed Grafana (private) | Integrated with Monitor workspace via private endpoint and private DNS |
-| Prometheus recording/alerting rules | Rule groups created in Azure Monitor for node/workload health |
+| Hub VNet + 3 subnets | `AzureFirewallSubnet`, `AzureBastionSubnet`, `snet-shared` (jumpboxes) |
+| Spoke VNet + 2 subnets | `snet-aks` (AKS nodes), `snet-pe` (private endpoints, network policies disabled) |
+| Bidirectional VNet peerings | Hub ↔ spoke; forwarded traffic enabled both directions |
+| **Azure Firewall (Standard)** + Firewall Policy | All cluster egress through one audited choke-point |
+| AKS-required firewall rules | Minimal FQDN/port allow-list (network + application rule collections) |
+| Route table on `snet-aks` | UDR: `0.0.0.0/0` → Firewall private IP (`userDefinedRouting`) |
+| **Azure Bastion (Standard SKU)** | Browser-based SSH/RDP; tunneling + copy-paste enabled; no public VM IPs |
+| **Linux + Windows jumpboxes** in hub `snet-shared` | System-assigned MI + `AKS Cluster User Role`; one set serves all spokes via VNet peering |
+| 4 × Private DNS Zones | AKS API, ACR, Prometheus, Grafana — each linked to both hub + spoke VNets |
+| **Private AKS cluster** | `private_cluster_enabled = true`, no public FQDN, BYO DNS zone, user-assigned identity |
+| User-assigned MI for AKS | Pre-granted `Private DNS Zone Contributor` + `Network Contributor` before cluster creation |
+| **Azure CNI Overlay + Cilium** | `network_plugin_mode = "overlay"`, `network_policy = "cilium"`, `network_data_plane = "cilium"` |
+| AKS add-ons / features | OIDC issuer, Workload Identity, Azure Policy, Azure RBAC — all enabled |
+| AKS operator access | `Azure Kubernetes Service RBAC Cluster Admin` granted to the operator identity |
+| Auto-scaling user node pools | Defined in `node_pools` tfvars variable; managed by the `aks_node_pools` module |
+| **Premium ACR** with private endpoint | `public_network_access_enabled = false` — all image pulls stay on-net |
+| ACR role assignments | Kubelet → `AcrPull`; operator → `AcrPush`; jumpbox MIs → `AcrPull` |
+| **Azure Monitor Workspace** (Managed Prometheus) | Private endpoint (`prometheusMetrics`); no public access; DCR + DCR association to AKS |
+| **Managed Grafana** (private) | Integrated with Monitor workspace; Grafana MI granted `Monitoring Data Reader` |
+| Prometheus recording rules | Node (CPU, memory, disk, network) + container (CPU, memory, requests) rule groups |
+| Prometheus alerting rules | 10 pre-built alerts: pod crash-looping, not-ready, node memory/disk/CPU pressure, HPA mismatch, PV filling up |
+| **Diagnostic settings** (5 resources) | Firewall, AKS control-plane, ACR, Grafana, Monitor Workspace → Log Analytics |
+| Hub Log Analytics workspace | `log-<name_suffix>-hub` in hub RG — receives Firewall diagnostic logs |
+| Spoke Log Analytics workspace | `log-<name_suffix>-<uid>` in spoke RG — used by OMS agent + AKS/ACR/Grafana/Prometheus diagnostics |
 
 ## Module layout
 
@@ -67,9 +76,9 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
 ├── outputs.tf         # Key resource IDs and connection info
 ├── providers.tf       # azurerm ~> 4.0, terraform >= 1.5.0
 └── modules/
-    ├── platform_stack/   # Stage 1: network, firewall, bastion, private DNS zones
-    ├── core_stack/       # Stage 2: private AKS cluster
-    ├── addons_stack/     # Stage 3: ACR, Prometheus/Grafana, rule groups, user node pools
+    ├── platform_stack/   # Stage 1: network, firewall, bastion, hub LAW, private DNS zones
+    ├── core_stack/       # Stage 2: private AKS cluster + spoke Log Analytics workspace
+    ├── addons_stack/     # Stage 3: ACR, Prometheus/Grafana, rule groups, jumpboxes, user node pools
     ├── hub_network/      # Building block modules used by platform_stack
     ├── firewall/
     ├── bastion/
@@ -80,10 +89,13 @@ Use this repo to understand Terraform concepts, Azure networking patterns, and e
     ├── managed_prometheus/
     ├── grafana/
     ├── recording_rules/
-    └── alerting_rules/
+    ├── alerting_rules/
+    ├── aks_node_pools/
+    ├── jumpbox/
+    └── windows_jumpbox/
 ```
 
-Each module has `main.tf / variables.tf / outputs.tf / versions.tf` and can be consumed independently.
+Each module has `main.tf`, `variables.tf`, and `outputs.tf`.
 
 ### Dependency chain
 
@@ -178,31 +190,33 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 
 ### Linux jumpbox (SSH via Bastion)
 
-1. In the Azure portal, open the Linux jumpbox VM → **Connect → Bastion**.
+1. In the Azure portal, open the Linux jumpbox VM in **`rg-paks-<env>-hub`** → **Connect → Bastion**.
 2. Log in with `jumpbox_admin_username` / `jumpbox_admin_password`.
 3. On the jumpbox:
 
    ```bash
    az login
    az aks get-credentials -g rg-paks-<env>-spoke -n aks-paks-<env>
+   kubelogin convert-kubeconfig -l azurecli
    kubectl get nodes
    k9s
    ```
 
    The `kubectl` call resolves the private API FQDN to a **private IP** via the
-   Private DNS Zone linked to the spoke VNet.
+   Private DNS Zone linked to the hub VNet.
 
    ![k9s console](images/k9s-console.png)
 
 ### Windows jumpbox (RDP via Bastion)
 
-1. In the Azure portal, open the Windows jumpbox VM → **Connect → Bastion**.
+1. In the Azure portal, open the Windows jumpbox VM in **`rg-paks-<env>-hub`** → **Connect → Bastion**.
 2. Log in with `windows_jumpbox_admin_username` / `windows_jumpbox_admin_password`.
 3. On first boot, the Custom Script Extension installs jumpbox tools via Chocolatey. Once complete, open a new PowerShell window and run:
 
    ```powershell
    az login
    az aks get-credentials -g rg-paks-<env>-spoke -n aks-paks-<env>
+   kubelogin convert-kubeconfig -l azurecli
    kubectl get nodes
    helm version
    ```
@@ -227,6 +241,11 @@ Pass the key at init time: `terraform init -backend-config="key=aks-landing-zone
 - **User-assigned MI for AKS** is mandatory with a BYO DNS zone — AKS needs `Private DNS Zone Contributor` on the zone *before* the cluster is created.
 - **Azure Firewall + UDR** centralises all egress through a single auditable point. AKS has a published list of required FQDNs and ports; this repo encodes them in a Firewall Policy.
 - **Private ACR** prevents image exfiltration and external pull-through. The kubelet authenticates via MSI — no registry secrets in the cluster.
+- **Azure CNI Overlay + Cilium** gives each pod its own IP from a dedicated overlay CIDR (avoids subnet exhaustion), while Cilium provides eBPF-based network policy enforcement and dataplane acceleration.
+- **OIDC issuer + Workload Identity** allows pods to exchange a Kubernetes service account token for an Azure AD token — no secrets mounted into pods.
+- **Azure Policy add-on** enforces OPA-based governance on the cluster (admission webhook backed by Azure Policy).
+- **Jumpboxes in hub `snet-shared`** means one pair of management VMs reaches all spokes through VNet peering — consistent toolchain, no per-spoke VM duplication.
+- **Diagnostic settings on all major resources** (Firewall, AKS, ACR, Grafana, Prometheus) feed two Log Analytics workspaces: one for the hub/firewall, one for spoke/workload diagnostics.
 - **Staged orchestration (`platform → core → addons`)** gives predictable rollout sequencing for enterprise environments while keeping module boundaries reusable.
 
 ## Egress rules
@@ -253,8 +272,10 @@ AKS [requires specific egress](https://learn.microsoft.com/azure/aks/limit-egres
 
 ## Recommended next steps
 
-- Enable **Azure Policy add-on**, OIDC issuer, and Workload Identity in `modules/private_aks/main.tf` after baseline stability.
-- Replace the jumpbox with **AKS Run Command** (`az aks command invoke`) for an even tighter perimeter.
-- Add **Application Gateway (private IP)** or **NGINX Ingress** for inbound traffic.
+- Add **Application Gateway (private IP)** or **NGINX Ingress Controller** for inbound traffic.
 - Add a second spoke for data services (SQL Managed Instance, Cosmos DB) and peer it through the hub.
-- Enable **Workload Identity** on application pods to access Key Vault without secrets.
+- Configure **Workload Identity** on your application pods — the OIDC issuer and WI webhook are already enabled. Create a federated credential and `ServiceAccount` per workload to access Key Vault without any secrets.
+- Enable **Microsoft Defender for Containers** for runtime threat detection on AKS nodes and the container registry.
+- Replace the jumpboxes with **AKS Run Command** (`az aks command invoke`) for an even tighter perimeter where no management VMs are needed.
+- Add **Azure DDoS Network Protection** on the hub VNet for production workloads.
+- Integrate **Azure Monitor Alerts** by populating `alert_action_group_ids` in your `envs/prod.tfvars` to route the pre-built Prometheus alert rules to email/PagerDuty/Teams.
