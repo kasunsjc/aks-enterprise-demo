@@ -274,8 +274,8 @@ This repo follows the [Azure Cloud Adoption Framework hub-spoke topology](https:
 | Route table / UDR | Spoke RG | ✅ Workload networking — spoke |
 | Private endpoints (ACR, Prometheus, Grafana) | Spoke RG (`snet-pe`) | ✅ Workload NICs — spoke |
 | ACR | Spoke RG | ⚠️ Single workload → spoke OK; shared registry → hub/shared services |
-| Azure Monitor Workspace (Prometheus) | Spoke RG | ⚠️ Single workload → spoke OK; platform-wide observability → hub |
-| Grafana | Spoke RG | ⚠️ Single workload → spoke OK; platform-wide observability → hub |
+| Azure Monitor Workspace (Prometheus) | Spoke RG | ⚠️ Per-team workload observability → spoke OK; platform-level metrics → add hub workspace |
+| Grafana | Spoke RG | ⚠️ Per-team dashboards → spoke OK; cross-spoke unified view → add hub Grafana with multi-workspace integration |
 | Spoke Log Analytics Workspace | Spoke RG | ⚠️ Single workload → spoke OK; centralised logging → hub |
 
 ### What changes when you scale to multiple spokes
@@ -290,14 +290,36 @@ A container registry that serves multiple AKS clusters should not live inside on
 - Move `privatelink.azurecr.io` DNS zone link to all peered spokes
 - Grant `AcrPull` to every spoke's kubelet MSI
 
-#### 2 — Prometheus + Grafana → hub / management spoke
+#### 2 — Prometheus + Grafana: federated observability model
 
-Azure Monitor Workspace and Grafana are platform-wide observability tools owned by the platform team. With multiple spokes:
+The right answer here is **use-case driven, not a binary hub-or-spoke choice**:
 
-- Deploy one Monitor Workspace + Grafana in the hub or a management spoke
-- Each AKS cluster's AMA metrics agent points at the shared workspace
-- All recording/alerting rules live in one place — no per-spoke duplication
-- Grafana gets a single pane of glass across all clusters
+**Per-spoke Prometheus + Grafana (keep what this repo already deploys)**
+- Each team/spoke owns its Azure Monitor Workspace and Grafana instance
+- Independent alerting rules, dashboards, and RBAC — teams are autonomous
+- Workload SLOs are defined and managed by the team that owns the workload
+- This is the correct model when teams have different on-call rotations or SLAs
+
+**Add a hub Grafana for platform-level resources**
+- The platform/ops team needs visibility into resources that don't belong to any one spoke: Firewall, Bastion, hub Log Analytics, policy compliance
+- Azure Managed Grafana supports multiple `azure_monitor_workspace_integrations` — one hub Grafana instance can query every spoke's Monitor Workspace simultaneously
+- This gives the platform team a single pane of glass without taking ownership away from spoke teams
+
+**The resulting federated topology:**
+```
+Hub Grafana (platform team — cross-spoke view)
+  ├── data source: hub Log Analytics   (Firewall, Bastion diagnostics)
+  ├── data source: spoke-A Monitor Workspace  (AKS cluster A metrics)
+  └── data source: spoke-B Monitor Workspace  (AKS cluster B metrics)
+
+Spoke-A Grafana (team A — workload view)
+  └── data source: spoke-A Monitor Workspace
+
+Spoke-B Grafana (team B — workload view)
+  └── data source: spoke-B Monitor Workspace
+```
+
+Platform-level resources (Firewall logs, Bastion session counts, hub LAW diagnostics) should always feed into the hub Grafana — they have no natural spoke owner.
 
 #### 3 — Consolidate Log Analytics Workspaces
 
